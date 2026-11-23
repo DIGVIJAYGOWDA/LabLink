@@ -1,3 +1,4 @@
+import json
 from functools import lru_cache
 from typing import Literal
 
@@ -23,8 +24,10 @@ class Settings(BaseSettings):
     database_timeout_seconds: int = 10
     # Google Gemini (AI assistant + conflict explanations). Get a key at https://aistudio.google.com/apikey
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-flash-latest"
-    gemini_timeout_seconds: int = 30
+    # Primary model and a fallback used when the primary is busy, rate-limited or unavailable
+    gemini_model: str = "gemini-flash-lite-latest"
+    gemini_fallback_model: str = "gemini-flash-latest"
+    gemini_timeout_seconds: int = 25
     # Max assistant questions per client per minute (0 disables the limit)
     assistant_rate_limit_per_minute: int = 20
     supabase_url: str = ""
@@ -38,7 +41,15 @@ class Settings(BaseSettings):
 
     @property
     def cors_origin_list(self) -> list[str]:
-        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+        """Accepts a comma-separated list or a JSON list: ["http://a", "http://b"]."""
+        raw = self.cors_origins.strip()
+        if raw.startswith("["):
+            try:
+                return [str(o).strip().rstrip("/") for o in json.loads(raw) if str(o).strip()]
+            except ValueError:
+                raw = raw.strip("[]")
+        items = (o.strip().strip("'\"").rstrip("/") for o in raw.split(","))
+        return [o for o in items if o]
 
 
 @lru_cache

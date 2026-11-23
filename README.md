@@ -2,7 +2,7 @@
 
 **Making College Laboratories More Accessible.** Hackathon project (Hack2Skill).
 
-> Status: Phase 6 complete - REST API with persistent Supabase PostgreSQL storage (in-memory fallback for local development). Gemini integration comes in a later phase.
+> Status: feature-complete - catalogue, slot booking, project-based access requests, faculty approvals, fair conflict allocation with Gemini explanations, a Gemini-powered AI lab assistant (chatbot), Supabase PostgreSQL storage and Cloud Run deployment files.
 
 ## Stack
 
@@ -36,31 +36,42 @@ LabLink/
 
 Requirements: Node 20+ (22 recommended), Python 3.11+.
 
-**Backend** (http://localhost:8000)
+**1. Backend** (http://localhost:8000)
 
 ```bash
 cd backend
 python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
+.venv\Scripts\activate          # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env             # Windows: copy .env.example .env
+copy .env.example .env           # macOS/Linux: cp .env.example .env
 uvicorn app.main:app --reload --port 8000
 ```
 
-Health check: `GET http://localhost:8000/api/health` -> `{"status":"ok",...}`
-API docs: http://localhost:8000/docs
+API docs: http://localhost:8000/docs. With no keys in `backend/.env` the API runs on built-in sample data (not saved) and the chatbot answers in basic mode, so you can try everything straight away.
 
-**Frontend** (http://localhost:5173)
+**2. Frontend** (http://localhost:5173)
 
 ```bash
 cd frontend
 npm install
-cp .env.example .env
+copy .env.example .env           # macOS/Linux: cp .env.example .env
 npm run dev
 ```
 
-The home page shows whether the backend is reachable.
+Open http://localhost:5173 and click **Get Started**.
 
+## What you need to provide
+
+| What | Why | Where to get it | Put it in |
+|------|-----|-----------------|-----------|
+| **Gemini API key** | AI lab assistant (chatbot) and AI explanations of conflict decisions | https://aistudio.google.com/apikey (free tier available) | `backend/.env` -> `GEMINI_API_KEY` |
+| **Supabase project** (URL + service-role key) | Saves bookings permanently | https://supabase.com -> new project -> run `database/schema.sql` then `database/seed.sql` in SQL Editor -> Project Settings -> API | `backend/.env` -> `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` |
+| Google Cloud project with billing enabled | Hosting (Cloud Run free tier covers a demo) | https://console.cloud.google.com | see **Deploy** below |
+
+**Check your setup** at any time (from `backend/`, venv active): `python -m app.check_setup`. It verifies packages, `.env`, CORS, the Supabase tables, a real save/read/delete in the database, and a live Gemini call, and tells you how to fix anything that fails. Secrets are never printed.
+
+Keys stay on the backend only. Never put them in `frontend/.env` or commit `.env` files (they are git-ignored).
+If the default model alias stops working, set `GEMINI_MODEL` to a current Flash model id from https://ai.google.dev/gemini-api/docs/models.
 ## Phase 2: landing page
 
 Routes (React Router):
@@ -104,12 +115,12 @@ Code layout:
 - `frontend/src/pages/app/` - Dashboard, Catalogue, Bookings, Approvals.
 - `frontend/src/components/app/` - feature components (booking dialog, resource card, conflict card, charts, activity feed, shared page pieces).
 - `frontend/src/components/ui/` - card, badge, form fields, dialog (native `<dialog>`), table, spinner, toast.
-- `frontend/src/hooks/useLabStore.tsx` - app state and actions.
+- `frontend/src/hooks/useLabStore.tsx` - app state, loaded from and saved to the API.
 - `frontend/src/types/lab.ts` - domain types.
 
-### Backend integration point
+### Data flow
 
-The backend currently exposes only `GET /api/health`, so all lab data is **mock data** in `frontend/src/data/mockLab.ts`. It is loaded through `frontend/src/services/labService.ts` (`fetchLabData`, `requestAllocationRecommendation`), which already returns Promises. When catalogue, booking and Gemini allocation endpoints exist, replace those function bodies with API calls and move the store actions in `useLabStore.tsx` to call them. Changes are in memory only and reset on reload.
+The frontend talks to the backend API through `frontend/src/services/api.ts` (shared fetch + error handling) and `frontend/src/services/labService.ts` / `assistantService.ts` (one function per endpoint). `useLabStore.tsx` loads the data once and updates it from each API response; errors show as toasts or inline form messages, and an offline backend shows a retry screen.
 
 ## Phase 5: backend API
 
@@ -132,6 +143,7 @@ All routes are under `/api`. Interactive docs: http://localhost:8000/docs (hidde
 | POST | `/api/conflicts/{id}/resolve` | Apply it: approve the winner, move the others |
 | GET | `/api/dashboard?role=faculty` or `?role=student&student=Name` | Summary stats, 7-day bookings, utilisation |
 | GET | `/api/activity?limit=20` | Recent activity |
+| POST | `/api/assistant/chat` | AI lab assistant (Gemini), `{ messages, role, studentName }` |
 
 Errors always use one shape, with `404` (not found), `409` (slot taken, duplicate, wrong status, resource under maintenance), `422` (invalid input or booking rule) and `500`:
 
@@ -153,6 +165,55 @@ There is no authentication (no login, per the project scope); the caller sends `
 ## Phase 6: database
 
 Supabase PostgreSQL. Schema, constraints and setup steps: [`database/README.md`](database/README.md). Database errors are mapped to the API error format: duplicate or double-booked slots return `409`, invalid data `422`, and an unreachable or unconfigured database `503`. The server logs the data store it uses at startup.
+
+## AI features (Google Gemini)
+
+- **AI lab assistant** - the "Ask LabLink AI" button in the app. Students ask things like "Which labs are free today?" or "When is the GPU Workstation free this week?"; faculty can ask for pending requests and conflicts. `POST /api/assistant/chat` sends Gemini a compact snapshot of live data (catalogue, free slots for 7 days, the user's own bookings), so answers come from the database. Students never receive other students' booking details. Limited to `ASSISTANT_RATE_LIMIT_PER_MINUTE` questions per client.
+- **Fair conflict allocation** - the allocation itself is a transparent rule (nearest project deadline keeps the slot, earliest submission breaks ties, others move to the next free slot), so it is always feasible. When a Gemini key is set, Gemini writes the explanation faculty see, weighing the deadlines and each student's stated requirements.
+- Without `GEMINI_API_KEY` both still work: the chatbot lists free slots for today and tomorrow, and explanations use the built-in text.
+
+## Testing
+
+```bash
+cd backend && pip install -r requirements-dev.txt && pytest -q      # 29 API tests (in-memory data, no network)
+cd frontend && npm run build && npm run lint
+```
+
+## Deploy (Google Cloud Run + Supabase)
+
+Both services ship as containers: `backend/Dockerfile` (FastAPI + uvicorn) and `frontend/Dockerfile` (static build served by nginx with SPA routing). The frontend reads the API URL at start-up from `API_BASE_URL`, so the same image works everywhere.
+
+1. **Database** - create a Supabase project, run `database/schema.sql` (and optionally `database/seed.sql`) in the SQL Editor. Copy the project URL and the service-role key.
+2. **Google Cloud set-up** (once; region `asia-south1` = Mumbai):
+   ```bash
+   gcloud auth login
+   gcloud config set project YOUR_PROJECT_ID
+   gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com
+   printf "%s" "YOUR_SUPABASE_SERVICE_ROLE_KEY" | gcloud secrets create supabase-service-role-key --data-file=-
+   printf "%s" "YOUR_GEMINI_API_KEY" | gcloud secrets create gemini-api-key --data-file=-
+   PROJECT_NUMBER=$(gcloud projects describe YOUR_PROJECT_ID --format="value(projectNumber)")
+   for s in supabase-service-role-key gemini-api-key; do gcloud secrets add-iam-policy-binding $s --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" --role=roles/secretmanager.secretAccessor; done
+   ```
+3. **Backend**:
+   ```bash
+   gcloud run deploy lablink-api --source backend --region asia-south1 --allow-unauthenticated \
+     --set-env-vars "ENVIRONMENT=production,DATA_BACKEND=supabase,SUPABASE_URL=https://YOUR_REF.supabase.co" \
+     --set-secrets "SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,GEMINI_API_KEY=gemini-api-key:latest"
+   ```
+   Note the service URL it prints (e.g. `https://lablink-api-xxxx.a.run.app`); check `<url>/api/health`.
+4. **Frontend**:
+   ```bash
+   gcloud run deploy lablink-web --source frontend --region asia-south1 --allow-unauthenticated \
+     --set-env-vars "API_BASE_URL=https://lablink-api-xxxx.a.run.app"
+   ```
+5. **Allow the frontend in CORS**:
+   ```bash
+   gcloud run services update lablink-api --region asia-south1 --update-env-vars "CORS_ORIGINS=https://lablink-web-xxxx.a.run.app"
+   ```
+
+In production (`ENVIRONMENT=production`) the API docs are hidden. Secrets live in Secret Manager, never in the images or the repository. For a custom domain, map it in Cloud Run and add it to `CORS_ORIGINS`.
+
+**Security note:** LabLink has no login (project scope), so anyone with the URL can use the student and faculty views, including approvals. Add authentication (e.g. Supabase Auth with a faculty role) before real campus use.
 
 ## Environment variables
 

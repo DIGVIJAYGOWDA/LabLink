@@ -305,3 +305,33 @@ def test_assistant_rate_limit(client, monkeypatch):
         assert client.post("/api/assistant/chat", json=chat_body(), headers=other).status_code == 200
     finally:
         assistant_limiter.cache_clear()
+
+
+def test_gemini_falls_back_when_primary_is_busy(monkeypatch):
+    import httpx
+
+    monkeypatch.setattr(get_settings(), "gemini_api_key", "test-key")
+    monkeypatch.setattr(get_settings(), "gemini_model", "primary-model")
+    monkeypatch.setattr(get_settings(), "gemini_fallback_model", "fallback-model")
+    calls = []
+
+    def fake_post(url, **_):
+        calls.append(url)
+        req = httpx.Request("POST", url)
+        if "primary-model" in url:
+            return httpx.Response(503, json={"error": {"message": "high demand"}}, request=req)
+        return httpx.Response(200, json={"candidates": [{"content": {"parts": [{"text": "From fallback"}]}}]}, request=req)
+
+    monkeypatch.setattr(gemini.httpx, "post", fake_post)
+    assert gemini.generate("sys", [("user", "hi")]) == "From fallback"
+    assert len(calls) == 2
+
+    def bad_key(url, **_):
+        calls.append(url)
+        return httpx.Response(400, text='{"error": {"details": [{"reason": "API_KEY_INVALID"}]}}', request=httpx.Request("POST", url))
+
+    calls.clear()
+    monkeypatch.setattr(gemini.httpx, "post", bad_key)
+    with pytest.raises(gemini.AIUnavailableError) as exc:
+        gemini.generate("sys", [("user", "hi")])
+    assert exc.value.code == "ai_key_invalid" and len(calls) == 1  # no pointless retry on a bad key

@@ -64,3 +64,10 @@ create index if not exists idx_activities_at on public.activities (at desc);
 alter table public.resources enable row level security;
 alter table public.bookings enable row level security;
 alter table public.activities enable row level security;
+
+-- Data API grants. Supabase projects created after May 30, 2026 no longer grant new tables to the
+-- API roles automatically (PostgREST then returns 42501 "permission denied for table").
+-- Only the backend's role (service_role, used by the secret key) gets access; public roles get none.
+grant usage on schema public to service_role;
+grant select, insert, update, delete on public.resources, public.bookings, public.activities to service_role;
+revoke all on public.resources, public.bookings, public.activities from anon, authenticated;

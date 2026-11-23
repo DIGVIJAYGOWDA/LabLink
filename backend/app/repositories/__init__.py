@@ -41,12 +41,17 @@ def _memory() -> Repositories:
 
 
 def _supabase() -> Repositories:
-    from app.db.client import get_supabase
-    from app.repositories.supabase_repo import (
-        SupabaseActivityRepository,
-        SupabaseBookingRepository,
-        SupabaseResourceRepository,
-    )
+    try:
+        from app.db.client import get_supabase
+        from app.repositories.supabase_repo import (
+            SupabaseActivityRepository,
+            SupabaseBookingRepository,
+            SupabaseResourceRepository,
+        )
+    except ImportError as exc:
+        from app.core.errors import DatabaseError
+
+        raise DatabaseError("The 'supabase' package is missing. Run: pip install -r requirements.txt") from exc
 
     client = get_supabase()
     return Repositories(
