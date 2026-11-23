@@ -58,7 +58,7 @@ copy .env.example .env           # macOS/Linux: cp .env.example .env
 npm run dev
 ```
 
-Open http://localhost:5173 and click **Get Started**.
+Open http://localhost:5173: it opens the dashboard (the landing page was removed; `/` redirects to `/app`).
 
 ## What you need to provide
 

@@ -142,7 +142,98 @@ html {
   background-size: 22px 22px;
 }
 
+/* ---------- App header & footer: animated brand gradients ---------- */
+@keyframes gradient-pan {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes shine-sweep {
+  0% { transform: translateX(-100%); }
+  60%, 100% { transform: translateX(100%); }
+}
+.app-header {
+  background-image: linear-gradient(110deg, oklch(0.45 0.1 192), oklch(0.55 0.12 200), oklch(0.5 0.13 225), oklch(0.47 0.11 180), oklch(0.45 0.1 192));
+  background-size: 300% 100%;
+  animation: gradient-pan 14s ease-in-out infinite;
+}
+.app-header-faculty {
+  background-image: linear-gradient(110deg, oklch(0.45 0.17 275), oklch(0.5 0.2 295), oklch(0.47 0.19 320), oklch(0.46 0.16 265), oklch(0.45 0.17 275));
+  background-size: 300% 100%;
+  animation: gradient-pan 14s ease-in-out infinite;
+}
+/* Student <-> Faculty switch: the new view is revealed as a circle growing from the clicked button */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-new(root) {
+  animation: role-reveal 0.75s cubic-bezier(0.65, 0, 0.35, 1);
+}
+@keyframes role-reveal {
+  from { clip-path: circle(0px at var(--vt-x, 90%) var(--vt-y, 32px)); }
+  to { clip-path: circle(160vmax at var(--vt-x, 90%) var(--vt-y, 32px)); }
+}
+.app-header::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, oklch(0.9 0.12 170), oklch(0.85 0.15 90), transparent);
+  background-size: 200% 100%;
+  animation: gradient-pan 6s linear infinite;
+}
+.shine::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 0.18) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: shine-sweep 7s ease-in-out infinite;
+  pointer-events: none;
+}
+.app-footer {
+  background-image: linear-gradient(135deg, oklch(0.27 0.06 200), oklch(0.33 0.08 192), oklch(0.3 0.08 230), oklch(0.27 0.06 200));
+  background-size: 300% 300%;
+  animation: gradient-pan 20s ease-in-out infinite;
+}
+.footer-link {
+  position: relative;
+}
+.footer-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  height: 1px;
+  width: 100%;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.25s ease;
+}
+.footer-link:hover::after,
+.footer-link:focus-visible::after {
+  transform: scaleX(1);
+}
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.85 0.17 150 / 0.7); }
+  50% { box-shadow: 0 0 0 5px oklch(0.85 0.17 150 / 0); }
+}
+.live-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .app-header,
+  .app-header-faculty,
+  .app-header::after,
+  .app-footer,
+  .shine::before,
+  .live-dot {
+    animation: none;
+  }
   .reveal {
     opacity: 1;
     transform: none;

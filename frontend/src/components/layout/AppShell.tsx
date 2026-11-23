@@ -1,18 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type MouseEvent } from 'react'
+import { flushSync } from 'react-dom'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   Activity as ActivityIcon,
   CalendarCheck,
   ClipboardCheck,
   FlaskConical,
+  GraduationCap,
   LayoutDashboard,
   Menu,
   Search,
+  ShieldCheck,
   X,
   type LucideIcon,
 } from 'lucide-react'
 
 import AssistantChat from '@/components/app/AssistantChat'
+import AppFooter from '@/components/layout/AppFooter'
 import { Button } from '@/components/ui/button'
 import { ToastProvider } from '@/components/ui/toast'
 import { LabStoreProvider, useLabStore } from '@/hooks/useLabStore'
@@ -35,8 +39,8 @@ const APP_NAV: AppNavItem[] = [
 
 function Brand() {
   return (
-    <Link to="/" className="flex items-center gap-2 text-lg font-bold tracking-tight">
-      <span className="flex size-8 items-center justify-center rounded-lg bg-brand text-white">
+    <Link to="/app" className="flex items-center gap-2 text-lg font-bold tracking-tight">
+      <span className="shine relative flex size-8 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-brand to-cyan-600 text-white shadow-md shadow-brand/30">
         <FlaskConical className="size-4.5" aria-hidden="true" />
       </span>
       LabLink
@@ -92,27 +96,54 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
+const ROLE_OPTIONS: { value: Role; label: string; icon: LucideIcon; active: string }[] = [
+  { value: 'student', label: 'Student', icon: GraduationCap, active: 'text-brand' },
+  { value: 'faculty', label: 'Faculty', icon: ShieldCheck, active: 'text-indigo-700' },
+]
+
+type ViewTransitionDocument = Document & { startViewTransition?: (update: () => void) => unknown }
+
 function RoleSwitcher() {
   const { role, setRole } = useLabStore()
-  const options: { value: Role; label: string }[] = [
-    { value: 'student', label: 'Student' },
-    { value: 'faculty', label: 'Faculty' },
-  ]
+
+  function choose(next: Role, e: MouseEvent<HTMLButtonElement>) {
+    if (next === role) return
+    const doc = document as ViewTransitionDocument
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!doc.startViewTransition || reduceMotion) {
+      setRole(next)
+      return
+    }
+    // Circular reveal from the clicked button (CSS: role-reveal in index.css)
+    const r = e.currentTarget.getBoundingClientRect()
+    document.documentElement.style.setProperty('--vt-x', `${r.left + r.width / 2}px`)
+    document.documentElement.style.setProperty('--vt-y', `${r.top + r.height / 2}px`)
+    doc.startViewTransition(() => flushSync(() => setRole(next)))
+  }
+
   return (
-    <div role="radiogroup" aria-label="View as" className="flex items-center rounded-lg border bg-muted/50 p-0.5">
-      {options.map((o) => (
+    <div role="radiogroup" aria-label="View as" className="relative grid grid-cols-2 rounded-lg border border-white/25 bg-white/10 p-0.5 backdrop-blur">
+      <span
+        aria-hidden="true"
+        className={cn(
+          'absolute inset-y-0.5 left-0.5 w-[calc(50%-2px)] rounded-md bg-white shadow-md transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
+          role === 'faculty' && 'translate-x-full',
+        )}
+      />
+      {ROLE_OPTIONS.map(({ value, label, icon: Icon, active }) => (
         <button
-          key={o.value}
+          key={value}
           type="button"
           role="radio"
-          aria-checked={role === o.value}
-          onClick={() => setRole(o.value)}
+          aria-checked={role === value}
+          onClick={(e) => choose(value, e)}
           className={cn(
-            'rounded-md px-2.5 py-1 text-xs font-medium transition-colors sm:px-3 sm:text-sm',
-            role === o.value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+            'relative z-10 flex items-center justify-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors duration-300 sm:px-3 sm:text-sm',
+            role === value ? active : 'text-white/80 hover:text-white',
           )}
         >
-          {o.label}
+          <Icon className={cn('hidden size-4 transition-transform duration-500 sm:block', role === value && 'rotate-[360deg]')} aria-hidden="true" />
+          {label}
         </button>
       ))}
     </div>
@@ -134,6 +165,7 @@ function Shell() {
 
   return (
     <div className="min-h-screen bg-muted/30 lg:grid lg:grid-cols-[15rem_1fr]">
+      <div className="scroll-progress" aria-hidden="true" />
       <aside className="sticky top-0 hidden h-screen flex-col gap-6 border-r bg-background p-4 lg:flex">
         <Brand />
         <SidebarNav />
@@ -158,11 +190,18 @@ function Shell() {
       )}
 
       <div className="flex min-w-0 flex-col">
-        <header className="sticky top-0 z-40 flex h-16 items-center gap-3 border-b bg-background/85 px-4 backdrop-blur sm:px-6">
+        <header className="app-header sticky top-0 z-40 flex h-16 items-center gap-3 px-4 text-white shadow-lg shadow-brand/20 sm:px-6">
+          <div
+            aria-hidden="true"
+            className={cn(
+              'app-header-faculty pointer-events-none absolute inset-0 -z-10 transition-opacity duration-700',
+              role === 'faculty' ? 'opacity-100' : 'opacity-0',
+            )}
+          />
           <Button
             variant="ghost"
             size="icon"
-            className="-ml-2 lg:hidden"
+            className="-ml-2 text-white hover:bg-white/15 hover:text-white lg:hidden"
             aria-label="Open menu"
             aria-expanded={menuOpen}
             aria-controls="app-mobile-nav"
@@ -170,13 +209,23 @@ function Shell() {
           >
             <Menu />
           </Button>
-          <p className="flex-1 truncate font-semibold">{title}</p>
-          <span className="hidden text-sm text-muted-foreground md:inline">{currentUser}</span>
+          <p key={title} className="flex-1 truncate text-lg font-semibold tracking-tight animate-in fade-in slide-in-from-left-2 duration-500">
+            {title}
+          </p>
+          <span className="hidden items-center gap-2 text-sm text-white/90 md:flex">
+            <span className="flex size-7 items-center justify-center rounded-full bg-white/20 text-xs font-bold ring-1 ring-white/30">
+              {currentUser.split(' ').map((w) => w[0]).join('')}
+            </span>
+            {currentUser}
+          </span>
           <RoleSwitcher />
         </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-24 pt-6 sm:px-6 sm:pt-8">
-          <Outlet />
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-12 pt-6 sm:px-6 sm:pt-8">
+          <div key={`${role}:${pathname}`} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <Outlet />
+          </div>
         </main>
+        <AppFooter />
       </div>
       <AssistantChat key={role} />
     </div>
