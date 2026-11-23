@@ -71,5 +71,7 @@ def get_repositories() -> Repositories:
     if backend == "supabase":
         logger.info("Data store: Supabase PostgreSQL")
         return _supabase()
-    logger.warning("Data store: in-memory mock data (NOT persistent). Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to persist.")
+    logger.warning(
+        "Data store: in-memory mock data (NOT persistent). Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to persist."
+    )
     return _memory()

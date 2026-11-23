@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import type { LabResource } from '@/types/lab'
-import { RESOURCE_TYPE } from './common'
+import { RESOURCE_TYPE } from './resourceTypes'
 
 interface ResourceCardProps {
   resource: LabResource

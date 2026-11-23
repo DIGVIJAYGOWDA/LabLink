@@ -78,13 +78,19 @@ def _generate_with(model: str, system: str, messages: list[tuple[str, str]]) -> 
     if resp.status_code != 200:
         logger.error("Gemini returned %s: %s", resp.status_code, resp.text[:300])
         if resp.status_code == 429:
-            raise AIUnavailableError("The AI service is busy right now. Please try again in a minute.", code="ai_rate_limited")
+            raise AIUnavailableError(
+                "The AI service is busy right now. Please try again in a minute.", code="ai_rate_limited"
+            )
         if resp.status_code in (500, 503, 504):
             raise AIUnavailableError("The AI model is busy right now. Please try again in a moment.", code="ai_busy")
         if resp.status_code == 404:
-            raise AIUnavailableError("The configured AI model was not found. Check GEMINI_MODEL on the server.", code="ai_model_not_found")
+            raise AIUnavailableError(
+                "The configured AI model was not found. Check GEMINI_MODEL on the server.", code="ai_model_not_found"
+            )
         if "API_KEY_INVALID" in resp.text or resp.status_code == 401:
-            raise AIUnavailableError("The Gemini API key is not valid. Check GEMINI_API_KEY on the server.", code="ai_key_invalid")
+            raise AIUnavailableError(
+                "The Gemini API key is not valid. Check GEMINI_API_KEY on the server.", code="ai_key_invalid"
+            )
         if resp.status_code == 403:
             raise AIUnavailableError(
                 "The Gemini API key is not allowed to call this API. Check the key's restrictions in Google AI Studio.",

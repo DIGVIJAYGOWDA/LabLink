@@ -36,9 +36,14 @@ def _map_api_error(exc: APIError) -> AppError:
     logger.error("Database error %s: %s", code, text.strip())
     lowered = text.lower()
     if code in ("PGRST301", "PGRST302", "401") or "invalid api key" in lowered or "jwt" in lowered:
-        return DatabaseError("Supabase rejected the API key. Use the service-role (secret) key from Project Settings -> API.")
+        return DatabaseError(
+            "Supabase rejected the API key. Use the service-role (secret) key from Project Settings -> API."
+        )
     if code == "42501" or "permission denied" in lowered:
-        return DatabaseError("Supabase denied access to the LabLink tables. Run the GRANT lines at the end of database/schema.sql in the SQL Editor.")
+        return DatabaseError(
+            "Supabase denied access to the LabLink tables. "
+            "Run the GRANT lines at the end of database/schema.sql in the SQL Editor."
+        )
     if code in ("42P01", "PGRST205"):  # table not found
         return DatabaseError("Database tables are missing. Run database/schema.sql in Supabase.")
     return DatabaseError("A database error occurred. Please try again.")

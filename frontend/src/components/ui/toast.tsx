@@ -1,20 +1,9 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
+import { useCallback, useState, type ReactNode } from 'react'
 import { CheckCircle2, Info, TriangleAlert, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
-type ToastTone = 'success' | 'info' | 'error'
-
-interface Toast {
-  id: number
-  tone: ToastTone
-  title: string
-  description?: string
-}
-
-type Notify = (toast: Omit<Toast, 'id'>) => void
-
-const ToastContext = createContext<Notify | null>(null)
+import { ToastContext, type Notify, type Toast } from './use-toast'
 
 const ICONS = { success: CheckCircle2, info: Info, error: TriangleAlert }
 const TONES = { success: 'text-emerald-600', info: 'text-brand', error: 'text-red-600' }
@@ -66,10 +55,4 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       </div>
     </ToastContext.Provider>
   )
-}
-
-export function useToast() {
-  const notify = useContext(ToastContext)
-  if (!notify) throw new Error('useToast must be used inside ToastProvider')
-  return notify
 }

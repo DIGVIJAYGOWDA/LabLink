@@ -17,7 +17,9 @@ def list_resources(
     resource_type: ResourceType | None = Query(None, alias="type"),
     available: bool = Query(False, description="Only resources that are not under maintenance"),
 ):
-    return catalogue.list_resources(repos, query=q, department=department, resource_type=resource_type, available_only=available)
+    return catalogue.list_resources(
+        repos, query=q, department=department, resource_type=resource_type, available_only=available
+    )
 
 
 @router.get("/{resource_id}", response_model=Resource, responses=error_responses(404))

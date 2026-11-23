@@ -27,6 +27,11 @@ export function formatDate(iso: string) {
   return parseIsoDate(iso).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
 }
 
+/** e.g. "Monday, 23 November" */
+export function formatLongDate(iso: string) {
+  return parseIsoDate(iso).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
+}
+
 export function formatShortDay(iso: string) {
   return parseIsoDate(iso).toLocaleDateString(undefined, { weekday: 'short' })
 }

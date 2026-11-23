@@ -1,13 +1,13 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
-import { ArrowRight, Boxes, Cpu, Monitor, TriangleAlert } from 'lucide-react'
+import { ArrowRight, TriangleAlert } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useLabStore } from '@/hooks/useLabStore'
-import type { BookingStatus, ResourceType } from '@/types/lab'
+import type { BookingStatus } from '@/types/lab'
 
 export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
   return (
@@ -74,11 +74,6 @@ export function StatusBadge({ status }: { status: BookingStatus }) {
   return <Badge variant={s.variant}>{s.label}</Badge>
 }
 
-export const RESOURCE_TYPE: Record<ResourceType, { label: string; icon: LucideIcon }> = {
-  equipment: { label: 'Equipment', icon: Cpu },
-  kit: { label: 'Development kit', icon: Boxes },
-  workstation: { label: 'Workstation', icon: Monitor },
-}
 
 export function EmptyState({
   icon: Icon,

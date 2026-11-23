@@ -26,7 +26,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageLoader } from '@/components/ui/spinner'
 import { useLabStore } from '@/hooks/useLabStore'
-import { addDays, formatDate, todayIso } from '@/lib/date'
+import { addDays, formatDate, formatLongDate, todayIso } from '@/lib/date'
 import { bookingsPerDay, slotLabel, utilisationByDepartment } from '@/services/labService'
 
 // Decorative illustration for the welcome banner: floating lab icons, different per role
@@ -89,7 +89,7 @@ export default function Dashboard() {
           {isFaculty ? 'Faculty view' : 'Student view'}
         </p>
         <p className="text-sm font-medium text-white/80">
-          {new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
+          {formatLongDate(today)}
         </p>
         <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
           {isFaculty ? 'Faculty dashboard' : `Welcome back, ${currentUser.split(' ')[0]}`}

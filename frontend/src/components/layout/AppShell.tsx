@@ -19,7 +19,8 @@ import AssistantChat from '@/components/app/AssistantChat'
 import AppFooter from '@/components/layout/AppFooter'
 import { Button } from '@/components/ui/button'
 import { ToastProvider } from '@/components/ui/toast'
-import { LabStoreProvider, useLabStore } from '@/hooks/useLabStore'
+import { LabStoreProvider } from '@/hooks/LabStoreProvider'
+import { useLabStore } from '@/hooks/useLabStore'
 import { cn } from '@/lib/utils'
 import type { Role } from '@/types/lab'
 
@@ -165,6 +166,12 @@ function Shell() {
 
   return (
     <div className="min-h-screen bg-muted/30 lg:grid lg:grid-cols-[15rem_1fr]">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        Skip to main content
+      </a>
       <div className="scroll-progress" aria-hidden="true" />
       <aside className="sticky top-0 hidden h-screen flex-col gap-6 border-r bg-background p-4 lg:flex">
         <Brand />
@@ -220,7 +227,7 @@ function Shell() {
           </span>
           <RoleSwitcher />
         </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-12 pt-6 sm:px-6 sm:pt-8">
+        <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-6xl flex-1 px-4 pb-12 pt-6 outline-none sm:px-6 sm:pt-8">
           <div key={`${role}:${pathname}`} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <Outlet />
           </div>

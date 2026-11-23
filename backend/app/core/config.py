@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     gemini_timeout_seconds: int = 25
     # Max assistant questions per client per minute (0 disables the limit)
     assistant_rate_limit_per_minute: int = 20
+    # Largest JSON body the API accepts; bigger requests get 413 before any parsing.
+    max_request_body_bytes: int = 64 * 1024
     supabase_url: str = ""
     supabase_service_role_key: str = ""
 

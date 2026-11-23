@@ -11,7 +11,7 @@ import importlib
 import logging
 import sys
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 OK, WARN, FAIL = "[ OK ]", "[WARN]", "[FAIL]"
@@ -35,13 +35,18 @@ def section(title: str) -> None:
 
 def check_python_and_packages() -> bool:
     section("Python and packages")
-    if sys.version_info >= (3, 11):
+    if sys.version_info >= (3, 11):  # noqa: UP036 - runtime check of the user's interpreter
         report(OK, f"Python {sys.version.split()[0]}")
     else:
         report(FAIL, f"Python {sys.version.split()[0]} is too old", "Install Python 3.11 or newer")
     ok = True
-    for module, pip_name in [("fastapi", "fastapi"), ("uvicorn", "uvicorn"), ("pydantic_settings", "pydantic-settings"),
-                             ("httpx", "httpx"), ("supabase", "supabase")]:
+    for module, pip_name in [
+        ("fastapi", "fastapi"),
+        ("uvicorn", "uvicorn"),
+        ("pydantic_settings", "pydantic-settings"),
+        ("httpx", "httpx"),
+        ("supabase", "supabase"),
+    ]:
         try:
             importlib.import_module(module)
             report(OK, f"package '{pip_name}' installed")
@@ -76,8 +81,11 @@ def check_settings():
     elif origins:
         report(OK, f"CORS allows: {', '.join(origins)}")
     else:
-        report(WARN, f"CORS does not include the local frontend (http://localhost:5173): {origins}",
-               "Add http://localhost:5173 to CORS_ORIGINS in backend/.env")
+        report(
+            WARN,
+            f"CORS does not include the local frontend (http://localhost:5173): {origins}",
+            "Add http://localhost:5173 to CORS_ORIGINS in backend/.env",
+        )
     return settings
 
 
@@ -88,12 +96,18 @@ def check_database(settings, write_test: bool) -> None:
     has_creds = bool(settings.supabase_url and settings.supabase_service_role_key)
     backend = settings.data_backend if settings.data_backend != "auto" else ("supabase" if has_creds else "memory")
     if backend == "memory":
-        report(WARN, "using in-memory sample data: bookings are NOT saved when the server restarts",
-               "Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in backend/.env (see database/README.md)")
+        report(
+            WARN,
+            "using in-memory sample data: bookings are NOT saved when the server restarts",
+            "Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in backend/.env (see database/README.md)",
+        )
         return
     if not settings.supabase_url.startswith("https://") or ".supabase." not in settings.supabase_url:
-        report(WARN, "SUPABASE_URL does not look like https://<project-ref>.supabase.co",
-               "Copy it from Supabase: Project Settings -> API -> Project URL")
+        report(
+            WARN,
+            "SUPABASE_URL does not look like https://<project-ref>.supabase.co",
+            "Copy it from Supabase: Project Settings -> API -> Project URL",
+        )
 
     try:
         from app.repositories import get_repositories
@@ -113,14 +127,20 @@ def check_database(settings, write_test: bool) -> None:
         report(FAIL, f"cannot read from Supabase: {exc.message}", fix)
         return
     except Exception as exc:
-        report(FAIL, f"cannot connect to Supabase: {type(exc).__name__}: {exc}",
-               "Check the URL and that you used the service-role (secret) key, not the anon key")
+        report(
+            FAIL,
+            f"cannot connect to Supabase: {type(exc).__name__}: {exc}",
+            "Check the URL and that you used the service-role (secret) key, not the anon key",
+        )
         return
 
     report(OK, f"connected to Supabase; tables found: {len(resources)} resources, {len(bookings)} bookings")
     if not resources:
-        report(WARN, "the resources table is empty: the catalogue will show nothing",
-               "Run database/seed.sql in the Supabase SQL Editor, or add your own lab resources")
+        report(
+            WARN,
+            "the resources table is empty: the catalogue will show nothing",
+            "Run database/seed.sql in the Supabase SQL Editor, or add your own lab resources",
+        )
     if not activities:
         report(WARN, "the activity table is empty (fine for a fresh install)")
 
@@ -131,13 +151,17 @@ def check_database(settings, write_test: bool) -> None:
 
     test_id = f"setup-check-{uuid.uuid4().hex[:8]}"
     try:
-        repos.activities.add(Activity(id=test_id, kind="booking", message="LabLink setup check", at=datetime.now(timezone.utc)))
+        repos.activities.add(Activity(id=test_id, kind="booking", message="LabLink setup check", at=datetime.now(UTC)))
         rows = get_supabase().table("activities").select("id").eq("id", test_id).execute().data
         get_supabase().table("activities").delete().eq("id", test_id).execute()
         if rows:
             report(OK, "save test passed: wrote a row, read it back, deleted it (data is stored persistently)")
         else:
-            report(FAIL, "save test: row was written but could not be read back", "Check that RLS is not blocking the service-role key")
+            report(
+                FAIL,
+                "save test: row was written but could not be read back",
+                "Check that RLS is not blocking the service-role key",
+            )
     except AppError as exc:
         report(FAIL, f"save test failed: {exc.message}", "Make sure SUPABASE_SERVICE_ROLE_KEY is the service-role key")
     except Exception as exc:
@@ -147,8 +171,11 @@ def check_database(settings, write_test: bool) -> None:
 def check_gemini(settings) -> None:
     section("AI chatbot (Google Gemini)")
     if not settings.gemini_api_key.strip():
-        report(WARN, "GEMINI_API_KEY is empty: the chatbot runs in basic mode (free-slot list only)",
-               "Get a key at https://aistudio.google.com/apikey and set GEMINI_API_KEY in backend/.env")
+        report(
+            WARN,
+            "GEMINI_API_KEY is empty: the chatbot runs in basic mode (free-slot list only)",
+            "Get a key at https://aistudio.google.com/apikey and set GEMINI_API_KEY in backend/.env",
+        )
         return
     from app.core.errors import AppError
     from app.services import gemini
@@ -160,7 +187,10 @@ def check_gemini(settings) -> None:
     except AppError as exc:
         fix = "Check your internet connection and GEMINI_API_KEY"
         if exc.code == "ai_key_invalid":
-            fix = "Create a new key at https://aistudio.google.com/apikey and paste it into GEMINI_API_KEY (no quotes or spaces)"
+            fix = (
+                "Create a new key at https://aistudio.google.com/apikey "
+                "and paste it into GEMINI_API_KEY (no quotes or spaces)"
+            )
         elif exc.code == "ai_model_not_found" or "GEMINI_MODEL" in exc.message:
             fix = "Set GEMINI_MODEL to a current model id from https://ai.google.dev/gemini-api/docs/models"
         elif exc.code == "ai_busy":

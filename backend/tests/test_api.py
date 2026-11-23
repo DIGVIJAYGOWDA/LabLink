@@ -95,7 +95,9 @@ def test_instant_booking_and_double_booking(client):
     created = res.json()
     assert created["status"] == "confirmed" and created["studentName"] == "Test Student"
     assert client.get(f"/api/bookings/{created['id']}").json()["id"] == created["id"]
-    assert_error(client.post("/api/bookings", json=booking(studentName="Someone Else")), 409, "slot_unavailable", "slotId")
+    assert_error(
+        client.post("/api/bookings", json=booking(studentName="Someone Else")), 409, "slot_unavailable", "slotId"
+    )
     assert client.get("/api/activity?limit=1").json()[0]["message"].startswith("Test Student booked")
 
 
@@ -105,7 +107,9 @@ def test_approval_resource_creates_pending_request(client):
         json=booking(resourceId="r-pcr", purpose="Amplify samples for the soil project."),
     )
     assert res.status_code == 201 and res.json()["status"] == "pending"
-    again = client.post("/api/bookings", json=booking(resourceId="r-pcr", purpose="Amplify samples for the soil project."))
+    again = client.post(
+        "/api/bookings", json=booking(resourceId="r-pcr", purpose="Amplify samples for the soil project.")
+    )
     assert_error(again, 409, "duplicate_booking", "slotId")
 
 
@@ -197,7 +201,11 @@ def test_dashboard(client):
 
 
 def chat_body(**overrides):
-    body = {"messages": [{"role": "user", "content": "Which labs are free today?"}], "role": "student", "studentName": "Demo Student"}
+    body = {
+        "messages": [{"role": "user", "content": "Which labs are free today?"}],
+        "role": "student",
+        "studentName": "Demo Student",
+    }
     body.update(overrides)
     return body
 
@@ -211,8 +219,12 @@ def test_chat_fallback_without_key(client):
 def test_chat_validation(client):
     assert_error(client.post("/api/assistant/chat", json=chat_body(messages=[])), 422, "validation_error")
     last_assistant = [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello"}]
-    assert_error(client.post("/api/assistant/chat", json=chat_body(messages=last_assistant)), 422, "validation_error", "messages")
-    assert_error(client.post("/api/assistant/chat", json=chat_body(studentName=None)), 422, "validation_error", "studentName")
+    assert_error(
+        client.post("/api/assistant/chat", json=chat_body(messages=last_assistant)), 422, "validation_error", "messages"
+    )
+    assert_error(
+        client.post("/api/assistant/chat", json=chat_body(studentName=None)), 422, "validation_error", "studentName"
+    )
     too_long = [{"role": "user", "content": "x" * 2001}]
     assert_error(client.post("/api/assistant/chat", json=chat_body(messages=too_long)), 422, "validation_error")
 
@@ -228,7 +240,10 @@ def test_chat_with_gemini_grounds_answers_and_protects_privacy(client, monkeypat
     monkeypatch.setattr(gemini, "generate", fake_generate)
 
     res = client.post("/api/assistant/chat", json=chat_body())
-    assert res.status_code == 200 and res.json() == {"reply": "The Raspberry Pi Kit is free at 09:00 - 11:00.", "source": "gemini"}
+    assert res.status_code == 200 and res.json() == {
+        "reply": "The Raspberry Pi Kit is free at 09:00 - 11:00.",
+        "source": "gemini",
+    }
     system = captured["system"]
     assert "AVAILABILITY" in system and "Raspberry Pi Kit" in system
     assert "YOUR BOOKINGS AND REQUESTS (user: Demo Student)" in system
@@ -282,7 +297,9 @@ def test_supabase_error_mapping():
     def api_error(code, message):
         return APIError({"code": code, "message": message, "details": None, "hint": None})
 
-    err = _map_api_error(api_error("23505", 'duplicate key value violates unique constraint "uq_bookings_confirmed_slot"'))
+    err = _map_api_error(
+        api_error("23505", 'duplicate key value violates unique constraint "uq_bookings_confirmed_slot"')
+    )
     assert isinstance(err, ConflictError) and err.code == "slot_unavailable"
     err = _map_api_error(api_error("23505", 'violates unique constraint "uq_bookings_student_slot"'))
     assert err.code == "duplicate_booking"
@@ -320,7 +337,9 @@ def test_gemini_falls_back_when_primary_is_busy(monkeypatch):
         req = httpx.Request("POST", url)
         if "primary-model" in url:
             return httpx.Response(503, json={"error": {"message": "high demand"}}, request=req)
-        return httpx.Response(200, json={"candidates": [{"content": {"parts": [{"text": "From fallback"}]}}]}, request=req)
+        return httpx.Response(
+            200, json={"candidates": [{"content": {"parts": [{"text": "From fallback"}]}}]}, request=req
+        )
 
     monkeypatch.setattr(gemini.httpx, "post", fake_post)
     assert gemini.generate("sys", [("user", "hi")]) == "From fallback"
@@ -328,10 +347,57 @@ def test_gemini_falls_back_when_primary_is_busy(monkeypatch):
 
     def bad_key(url, **_):
         calls.append(url)
-        return httpx.Response(400, text='{"error": {"details": [{"reason": "API_KEY_INVALID"}]}}', request=httpx.Request("POST", url))
+        return httpx.Response(
+            400, text='{"error": {"details": [{"reason": "API_KEY_INVALID"}]}}', request=httpx.Request("POST", url)
+        )
 
     calls.clear()
     monkeypatch.setattr(gemini.httpx, "post", bad_key)
     with pytest.raises(gemini.AIUnavailableError) as exc:
         gemini.generate("sys", [("user", "hi")])
     assert exc.value.code == "ai_key_invalid" and len(calls) == 1  # no pointless retry on a bad key
+
+
+# ---------- Security hardening ----------
+
+
+def test_security_headers_on_api_responses(client):
+    res = client.get("/api/health")
+    assert res.headers["x-content-type-options"] == "nosniff"
+    assert res.headers["x-frame-options"] == "DENY"
+    assert res.headers["cache-control"] == "no-store"
+    assert "default-src 'none'" in res.headers["content-security-policy"]
+
+
+def test_docs_page_is_not_blocked_by_api_csp(client):
+    res = client.get("/docs")
+    assert res.status_code == 200
+    assert "content-security-policy" not in res.headers
+
+
+def test_oversized_body_is_rejected_with_413(client):
+    res = client.post(
+        "/api/assistant/chat",
+        content=b"x" * (get_settings().max_request_body_bytes + 1),
+        headers={"Content-Type": "application/json"},
+    )
+    assert res.status_code == 413
+    assert res.json()["error"]["code"] == "payload_too_large"
+
+
+def test_413_still_carries_cors_headers(client):
+    res = client.post(
+        "/api/bookings",
+        content=b"x" * (get_settings().max_request_body_bytes + 1),
+        headers={"Content-Type": "application/json", "Origin": "http://localhost:5173"},
+    )
+    assert res.status_code == 413
+    assert res.headers.get("access-control-allow-origin") == "http://localhost:5173"
+
+
+def test_cors_rejects_unlisted_methods(client):
+    res = client.options(
+        "/api/bookings",
+        headers={"Origin": "http://localhost:5173", "Access-Control-Request-Method": "DELETE"},
+    )
+    assert res.status_code == 400

@@ -40,7 +40,9 @@ def get_summary(repos: Repositories, role: Role, student: str | None) -> Dashboa
     utilisation = []
     for dept in sorted({r.department for r in resources}):
         ids = {r.id for r in resources if r.department == dept and r.status == "available"}
-        used = sum(1 for b in bookings if b.resource_id in ids and scheduling.is_active(b) and today <= b.date <= week_end)
+        used = sum(
+            1 for b in bookings if b.resource_id in ids and scheduling.is_active(b) and today <= b.date <= week_end
+        )
         capacity = len(ids) * capacity_per_resource
         utilisation.append(UtilisationRow(label=dept, percent=round(used / capacity * 100) if capacity else 0))
 

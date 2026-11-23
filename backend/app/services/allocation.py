@@ -48,7 +48,11 @@ def recommend(conflict: Conflict, bookings: list[Booking]) -> AllocationRecommen
     ranked = sorted(conflict.bookings, key=lambda b: (b.deadline, b.created_at))
     winner, others = ranked[0], ranked[1:]
     other_ids = {o.id for o in others}
-    taken = {(b.date, b.slot_id) for b in bookings if b.resource_id == conflict.resource_id and scheduling.is_active(b) and b.id not in other_ids}
+    taken = {
+        (b.date, b.slot_id)
+        for b in bookings
+        if b.resource_id == conflict.resource_id and scheduling.is_active(b) and b.id not in other_ids
+    }
 
     reassignments: list[Reassignment] = []
     unplaced: list[str] = []
@@ -67,7 +71,9 @@ def recommend(conflict: Conflict, bookings: list[Booking]) -> AllocationRecommen
             unplaced.append(other.id)
             continue
         taken.add(slot)
-        reassignments.append(Reassignment(booking_id=other.id, date=slot[0], slot_id=slot[1], after_deadline=slot[0] > other.deadline))
+        reassignments.append(
+            Reassignment(booking_id=other.id, date=slot[0], slot_id=slot[1], after_deadline=slot[0] > other.deadline)
+        )
 
     tie = any(o.deadline == winner.deadline for o in others)
     reason = (
@@ -88,20 +94,27 @@ def _ai_explanation(conflict: Conflict, rec: AllocationRecommendation, resource_
         f"submitted {b.created_at:%Y-%m-%d %H:%M}, requirements: {b.purpose or 'not given'}"
         for b in conflict.bookings
     )
-    moves = "\n".join(
-        f"- {r.booking_id} moves to {r.date.isoformat()} {scheduling.slot_label(r.slot_id)}"
-        + (" (after their deadline)" if r.after_deadline else "")
-        for r in rec.reassignments
-    ) or "- none"
+    moves = (
+        "\n".join(
+            f"- {r.booking_id} moves to {r.date.isoformat()} {scheduling.slot_label(r.slot_id)}"
+            + (" (after their deadline)" if r.after_deadline else "")
+            for r in rec.reassignments
+        )
+        or "- none"
+    )
     prompt = (
-        f"Slot conflict on the {resource_name}, {conflict.date.isoformat()} {scheduling.slot_label(conflict.slot_id)}.\n"
+        f"Slot conflict on the {resource_name}, "
+        f"{conflict.date.isoformat()} {scheduling.slot_label(conflict.slot_id)}.\n"
         f"Competing requests:\n{requests}\n\nDecision: {rec.winner_id} keeps the slot.\nMoves:\n{moves}\n"
         f"Unplaced: {', '.join(rec.unplaced_ids) or 'none'}\n\n"
         "In at most 2 short sentences for faculty, explain why this allocation is fair and feasible, referring to the "
-        "deadlines and the stated requirements. Use student names, not ids. Do not change the decision. Plain text only."
+        "deadlines and the stated requirements. Use student names, not ids. "
+        "Do not change the decision. Plain text only."
     )
     try:
-        return gemini.generate("You explain lab-equipment allocation decisions clearly and neutrally.", [("user", prompt)])
+        return gemini.generate(
+            "You explain lab-equipment allocation decisions clearly and neutrally.", [("user", prompt)]
+        )
     except AppError:
         return None
 
@@ -132,8 +145,10 @@ def resolve_conflict(repos: Repositories, cid: str) -> ConflictResolution:
                 patch = {
                     "date": move.date,
                     "slot_id": move.slot_id,
-                    "faculty_note": f"Moved to {scheduling.format_day(move.date)}, {scheduling.slot_label(move.slot_id)} "
-                    "to resolve a slot conflict. Awaiting approval.",
+                    "faculty_note": (
+                        f"Moved to {scheduling.format_day(move.date)}, {scheduling.slot_label(move.slot_id)} "
+                        "to resolve a slot conflict. Awaiting approval."
+                    ),
                 }
             updated.append(repos.bookings.update(b.model_copy(update=patch)))
 

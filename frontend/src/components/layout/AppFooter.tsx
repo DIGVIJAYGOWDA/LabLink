@@ -4,6 +4,7 @@ import { Database, ExternalLink, FlaskConical, Sparkles } from 'lucide-react'
 import Reveal from '@/components/ui/reveal'
 
 const GITHUB_URL = 'https://github.com/DIGVIJAYGOWDA/LabLink'
+const YEAR = new Date().getFullYear()
 
 const NAV = [
   { to: '/app', label: 'Dashboard' },
@@ -13,8 +14,6 @@ const NAV = [
 ]
 
 export default function AppFooter() {
-  const year = new Date().getFullYear()
-
   return (
     <footer className="app-footer relative isolate mt-8 overflow-hidden text-white">
       <div className="h-1 bg-gradient-to-r from-teal-300 via-amber-300 to-cyan-400" aria-hidden="true" />
@@ -75,7 +74,7 @@ export default function AppFooter() {
 
       <div className="border-t border-white/10">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-4 pr-24 text-xs text-white/60 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:pr-48">
-          <p>&copy; {year} LabLink. Released under the MIT License.</p>
+          <p>&copy; {YEAR} LabLink. Released under the MIT License.</p>
           <p className="flex items-center gap-2">
             <span className="live-dot inline-block size-2 rounded-full bg-emerald-400" aria-hidden="true" />
             Built for the Hack2Skill hackathon

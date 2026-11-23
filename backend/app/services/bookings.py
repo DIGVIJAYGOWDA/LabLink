@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from app.core.errors import BusinessRuleError, ConflictError, NotFoundError
@@ -75,12 +75,16 @@ def create_booking(repos: Repositories, payload: BookingCreate) -> Booking:
             id=f"b-{uuid4().hex[:10]}",
             **payload.model_dump(),
             status="pending" if resource.requires_approval else "confirmed",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         repos.bookings.add(booking)
 
     verb = "requested" if booking.status == "pending" else "booked"
-    log_activity(repos, "request" if booking.status == "pending" else "booking", f"{booking.student_name} {verb} the {resource.name}")
+    log_activity(
+        repos,
+        "request" if booking.status == "pending" else "booking",
+        f"{booking.student_name} {verb} the {resource.name}",
+    )
     return booking
 
 
@@ -101,7 +105,9 @@ def cancel_booking(repos: Repositories, booking_id: str) -> Booking:
 def _pending(repos: Repositories, booking_id: str) -> Booking:
     booking = get_booking(repos, booking_id)
     if booking.status != "pending":
-        raise ConflictError(f"Only pending requests can be reviewed (this one is {booking.status}).", code="invalid_state")
+        raise ConflictError(
+            f"Only pending requests can be reviewed (this one is {booking.status}).", code="invalid_state"
+        )
     return booking
 
 
@@ -110,7 +116,9 @@ def approve_booking(repos: Repositories, booking_id: str, note: str | None = Non
         booking = _pending(repos, booking_id)
         if scheduling.slot_state(repos.bookings.list(), booking.resource_id, booking.date, booking.slot_id) == "booked":
             raise ConflictError("Another booking already holds this slot.", code="slot_unavailable")
-        updated = repos.bookings.update(booking.model_copy(update={"status": "confirmed", "faculty_note": note or "Approved."}))
+        updated = repos.bookings.update(
+            booking.model_copy(update={"status": "confirmed", "faculty_note": note or "Approved."})
+        )
 
     resource = get_resource(repos, booking.resource_id)
     log_activity(repos, "approval", f"Faculty approved {booking.student_name} on the {resource.name}")
