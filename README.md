@@ -179,6 +179,18 @@ cd backend && pip install -r requirements-dev.txt && pytest -q      # 29 API tes
 cd frontend && npm run build && npm run lint
 ```
 
+## Deploy on Render (free)
+
+`render.yaml` (repo root) is a Render Blueprint that creates both services.
+
+1. Push the latest code to GitHub (never commit `.env` files).
+2. Render -> **New -> Blueprint** -> connect GitHub -> pick the LabLink repo -> it reads `render.yaml`.
+3. Fill the prompted values: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, `CORS_ORIGINS=https://lablink-web.onrender.com`, `VITE_API_BASE_URL=https://lablink-api.onrender.com` -> **Apply**.
+4. When both are live, check the real URLs on each service page. If Render added a suffix to a name, fix `CORS_ORIGINS` (API) and `VITE_API_BASE_URL` (website) under **Environment** and redeploy.
+5. Check `https://<api>/api/health`, then open the website.
+
+The free web service sleeps after a period without traffic; the first request afterwards takes about a minute.
+
 ## Deploy on Vercel (free, recommended)
 
 Two Vercel projects from the same GitHub repo. Push your latest code to GitHub first (never commit `.env` files).

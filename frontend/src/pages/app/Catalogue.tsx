@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { SearchX } from 'lucide-react'
 
 import BookingDialog from '@/components/app/BookingDialog'
@@ -16,7 +17,8 @@ export default function Catalogue() {
   const [query, setQuery] = useState('')
   const [department, setDepartment] = useState('all')
   const [type, setType] = useState<ResourceType | 'all'>('all')
-  const [availableOnly, setAvailableOnly] = useState(false)
+  const [params] = useSearchParams()
+  const [availableOnly, setAvailableOnly] = useState(params.get('available') === '1')
   const [booking, setBooking] = useState<LabResource | null>(null)
 
   const departments = useMemo(() => [...new Set(resources.map((r) => r.department))].sort(), [resources])

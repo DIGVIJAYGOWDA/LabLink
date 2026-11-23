@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
-import { Boxes, Cpu, Monitor, TriangleAlert } from 'lucide-react'
+import { ArrowRight, Boxes, Cpu, Monitor, TriangleAlert } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -20,18 +21,44 @@ export function PageHeader({ title, description, actions }: { title: string; des
   )
 }
 
-export function StatCard({ icon: Icon, label, value, hint }: { icon: LucideIcon; label: string; value: ReactNode; hint?: string }) {
-  return (
-    <Card className="p-4 transition-shadow hover:shadow-md sm:p-5">
+interface StatCardProps {
+  icon: LucideIcon
+  label: string
+  value: ReactNode
+  hint?: string
+  /** When set, the whole card links to the page with the details behind the number. */
+  to?: string
+}
+
+export function StatCard({ icon: Icon, label, value, hint, to }: StatCardProps) {
+  const card = (
+    <Card
+      className={
+        to
+          ? 'h-full p-4 transition duration-200 group-hover:-translate-y-0.5 group-hover:border-brand/40 group-hover:shadow-md sm:p-5'
+          : 'h-full p-4 sm:p-5'
+      }
+    >
       <div className="flex items-start justify-between gap-2">
         <p className="text-xs font-medium text-muted-foreground sm:text-sm">{label}</p>
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand sm:size-9">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand transition-colors group-hover:bg-brand group-hover:text-white sm:size-9">
           <Icon className="size-4 sm:size-4.5" aria-hidden="true" />
         </span>
       </div>
       <p className="mt-2 text-2xl font-bold tracking-tight tabular-nums sm:mt-3 sm:text-3xl">{value}</p>
       {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+      {to && (
+        <p className="mt-2 flex items-center gap-1 text-xs font-medium text-brand">
+          View details <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+        </p>
+      )}
     </Card>
+  )
+  if (!to) return card
+  return (
+    <Link to={to} className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`${label}: ${value}. View details`}>
+      {card}
+    </Link>
   )
 }
 

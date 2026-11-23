@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
+import { useLocation } from 'react-router-dom'
 import { CheckCheck, ShieldCheck } from 'lucide-react'
 
 import ConflictCard from '@/components/app/ConflictCard'
@@ -23,6 +24,18 @@ export default function Approvals() {
   const [note, setNote] = useState('')
   const [noteError, setNoteError] = useState('')
   const [busyId, setBusyId] = useState<string | null>(null)
+  const { hash } = useLocation()
+
+  // Dashboard cards link to #conflicts / #pending: scroll there once the data has loaded
+  useEffect(() => {
+    if (loading || role !== 'faculty' || !hash) return
+    const el = document.getElementById(hash.slice(1))
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    el.classList.add('section-flash')
+    const t = window.setTimeout(() => el.classList.remove('section-flash'), 1600)
+    return () => window.clearTimeout(t)
+  }, [hash, loading, role])
 
   if (role !== 'faculty') {
     return (
@@ -90,7 +103,7 @@ export default function Approvals() {
         <LoadError />
       ) : (
         <div className="space-y-8">
-          <section aria-labelledby="conflicts-h">
+          <section id="conflicts" aria-labelledby="conflicts-h" className="scroll-mt-24 rounded-xl">
             <h2 id="conflicts-h" className="mb-3 flex items-center gap-2 text-lg font-semibold">
               Slot conflicts <Badge variant={conflicts.length ? 'warning' : 'default'}>{conflicts.length}</Badge>
             </h2>
@@ -105,7 +118,7 @@ export default function Approvals() {
             )}
           </section>
 
-          <section aria-labelledby="pending-h">
+          <section id="pending" aria-labelledby="pending-h" className="scroll-mt-24 rounded-xl">
             <h2 id="pending-h" className="mb-3 flex items-center gap-2 text-lg font-semibold">
               Pending requests <Badge>{pending.length}</Badge>
             </h2>

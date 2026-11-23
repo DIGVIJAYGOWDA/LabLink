@@ -142,6 +142,16 @@ html {
   background-size: 22px 22px;
 }
 
+/* Highlight a section the user jumped to from a dashboard card */
+@keyframes section-flash {
+  0% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--brand) 0%, transparent); }
+  25% { box-shadow: 0 0 0 6px color-mix(in oklch, var(--brand) 35%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--brand) 0%, transparent); }
+}
+.section-flash {
+  animation: section-flash 1.6s ease-out;
+}
+
 /* ---------- App header & footer: animated brand gradients ---------- */
 @keyframes gradient-pan {
   0% { background-position: 0% 50%; }

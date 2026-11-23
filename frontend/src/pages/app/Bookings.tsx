@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { CalendarX2 } from 'lucide-react'
 
 import { EmptyState, LoadError, PageHeader, StatusBadge } from '@/components/app/common'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -24,9 +25,14 @@ const TABS: { id: Tab; label: string }[] = [
 ]
 
 export default function Bookings() {
-  const { loading, error, role, currentUser, bookings, getResource, cancelBooking } = useLabStore()
+  const { loading, error, role, currentUser, bookings, conflicts, getResource, cancelBooking } = useLabStore()
   const notify = useToast()
-  const [tab, setTab] = useState<Tab>('upcoming')
+  // The tab lives in the URL (?tab=pending) so dashboard cards can link straight to it
+  const [params, setParams] = useSearchParams()
+  const tabParam = params.get('tab')
+  const tab: Tab = tabParam === 'pending' || tabParam === 'history' ? tabParam : 'upcoming'
+  const setTab = (next: Tab) => setParams({ tab: next }, { replace: true })
+  const conflicted = new Set(conflicts.flatMap((c) => c.bookings.map((b) => b.id)))
   const [toCancel, setToCancel] = useState<Booking | null>(null)
   const [cancelling, setCancelling] = useState(false)
   const today = todayIso()
@@ -110,7 +116,10 @@ export default function Bookings() {
                           <p className="font-medium">{r?.name}</p>
                           <p className="text-xs text-muted-foreground">{r?.lab}</p>
                         </div>
-                        <StatusBadge status={b.status} />
+                        <div className="flex flex-col items-end gap-1">
+                          <StatusBadge status={b.status} />
+                          {conflicted.has(b.id) && <Badge variant="warning">Competing request</Badge>}
+                        </div>
                       </div>
                       <p className="mt-3 text-sm">
                         {formatDate(b.date)} · <span className="tabular-nums">{slotLabel(b.slotId)}</span>
@@ -163,6 +172,11 @@ export default function Bookings() {
                           </TableCell>
                           <TableCell className="min-w-40">
                             <StatusBadge status={b.status} />
+                            {conflicted.has(b.id) && (
+                              <Badge variant="warning" className="ml-1" title="Another request wants the same slot; faculty will decide fairly">
+                                Competing request
+                              </Badge>
+                            )}
                             {b.facultyNote && b.status !== 'confirmed' && (
                               <p className="mt-1 max-w-xs text-xs text-muted-foreground">{b.facultyNote}</p>
                             )}

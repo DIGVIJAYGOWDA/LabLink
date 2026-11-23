@@ -114,14 +114,32 @@ export default function Dashboard() {
       </section>
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <StatCard icon={Boxes} label="Available resources" value={`${available}/${resources.length}`} hint="Across all departments" />
+        <StatCard
+          icon={Boxes}
+          label="Available resources"
+          value={`${available}/${resources.length}`}
+          hint="Across all departments"
+          to="/app/catalogue?available=1"
+        />
         {isFaculty ? (
-          <StatCard icon={CalendarCheck} label="Confirmed this week" value={thisWeek} hint="All departments, next 7 days" />
+          <StatCard icon={CalendarCheck} label="Confirmed this week" value={thisWeek} hint="All departments, next 7 days" to="/app/bookings?tab=upcoming" />
         ) : (
-          <StatCard icon={CalendarCheck} label="Upcoming bookings" value={upcoming.length} hint="Confirmed slots" />
+          <StatCard icon={CalendarCheck} label="Upcoming bookings" value={upcoming.length} hint="Confirmed slots" to="/app/bookings?tab=upcoming" />
         )}
-        <StatCard icon={Clock} label={isFaculty ? 'Pending requests' : 'Awaiting approval'} value={pending.length} hint="Project-based access requests" />
-        <StatCard icon={AlertTriangle} label="Slot conflicts" value={scopedConflicts.length} hint={isFaculty ? 'Need an allocation decision' : 'Involving your requests'} />
+        <StatCard
+          icon={Clock}
+          label={isFaculty ? 'Pending requests' : 'Awaiting approval'}
+          value={pending.length}
+          hint="Project-based access requests"
+          to={isFaculty ? '/app/approvals#pending' : '/app/bookings?tab=pending'}
+        />
+        <StatCard
+          icon={AlertTriangle}
+          label="Slot conflicts"
+          value={scopedConflicts.length}
+          hint={isFaculty ? 'Need an allocation decision' : 'Involving your requests'}
+          to={isFaculty ? '/app/approvals#conflicts' : '/app/bookings?tab=pending'}
+        />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
