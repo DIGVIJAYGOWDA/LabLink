@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -20,9 +21,9 @@ export default function Hero() {
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg">
-              <a href="#how-it-works">
+              <Link to="/app">
                 Get Started <ArrowRight />
-              </a>
+              </Link>
             </Button>
             <Button asChild size="lg" variant="outline">
               <a href="#features">Explore Features</a>

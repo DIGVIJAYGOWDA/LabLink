@@ -1,19 +1,16 @@
-// LabLink data service.
-//
-// INTEGRATION POINT: the backend currently exposes only GET /api/health and there is no
-// database schema yet, so the async functions below resolve mock data. When the backend
-// adds catalogue/booking/allocation endpoints, replace their bodies with `apiGet`/fetch calls
-// from '@/services/api' and keep the same signatures. The pure helpers further down
-// (availability, conflicts, utilisation) work on whatever data those calls return.
-import { createMockLabData } from '@/data/mockLab'
+// LabLink data service: API calls to the backend (backend/app/api/routes) plus small pure
+// helpers the UI uses to derive slot states, conflicts and charts from the fetched data.
+import { apiGet, apiRequest } from '@/services/api'
 import { addDays, todayIso } from '@/lib/date'
 import type {
+  Activity,
   AllocationRecommendation,
   Booking,
   Conflict,
+  ConflictResolution,
   LabData,
   LabResource,
-  Reassignment,
+  NewBookingInput,
   SlotId,
   SlotState,
   TimeSlot,
@@ -26,31 +23,40 @@ export const TIME_SLOTS: TimeSlot[] = [
   { id: 's4', label: '16:00 - 18:00' },
 ]
 
-/** How many days ahead students can book. */
+/** How many days ahead students can book (matches BOOKING_WINDOW_DAYS on the backend). */
 export const BOOKING_WINDOW_DAYS = 14
 
-const MOCK_LATENCY_MS = 400
+// ---------- API ----------
 
-function delay<T>(value: T, ms = MOCK_LATENCY_MS) {
-  return new Promise<T>((resolve) => setTimeout(() => resolve(value), ms))
+export async function fetchLabData(): Promise<LabData> {
+  const [resources, bookings, activities] = await Promise.all([
+    apiGet<LabResource[]>('/api/resources'),
+    apiGet<Booking[]>('/api/bookings'),
+    apiGet<Activity[]>('/api/activity?limit=50'),
+  ])
+  return { resources, bookings, activities }
 }
 
-/** MOCK: loads catalogue, bookings and activity. Replace with backend calls later. */
-export function fetchLabData(): Promise<LabData> {
-  return delay(createMockLabData())
-}
+export const fetchBookings = () => apiGet<Booking[]>('/api/bookings')
+export const fetchActivity = () => apiGet<Activity[]>('/api/activity?limit=50')
 
-/**
- * MOCK: stands in for the planned Gemini-powered allocation recommendation (README: "AI recommends
- * fair, feasible allocations ... using project deadlines, availability and student requirements").
- * Uses a transparent deadline-first rule locally. Replace with the backend AI call when available.
- */
-export function requestAllocationRecommendation(
-  conflict: Conflict,
-  bookings: Booking[],
-): Promise<AllocationRecommendation> {
-  return delay(recommendAllocation(conflict, bookings), 700)
-}
+export const createBooking = (input: NewBookingInput & { studentName: string }) =>
+  apiRequest<Booking>('/api/bookings', { method: 'POST', body: input })
+
+export const cancelBooking = (id: string) =>
+  apiRequest<Booking>(`/api/bookings/${encodeURIComponent(id)}/cancel`, { method: 'POST' })
+
+export const approveBooking = (id: string, note?: string) =>
+  apiRequest<Booking>(`/api/bookings/${encodeURIComponent(id)}/approve`, { method: 'POST', body: note ? { note } : {} })
+
+export const rejectBooking = (id: string, note: string) =>
+  apiRequest<Booking>(`/api/bookings/${encodeURIComponent(id)}/reject`, { method: 'POST', body: { note } })
+
+export const requestAllocationRecommendation = (conflictId: string) =>
+  apiGet<AllocationRecommendation>(`/api/conflicts/${encodeURIComponent(conflictId)}/recommendation`)
+
+export const resolveConflict = (conflictId: string) =>
+  apiRequest<ConflictResolution>(`/api/conflicts/${encodeURIComponent(conflictId)}/resolve`, { method: 'POST' })
 
 // ---------- Pure helpers ----------
 
@@ -72,60 +78,18 @@ export function slotState(bookings: Booking[], resourceId: string, date: string,
   return state
 }
 
+/** Same grouping and id format as the backend (`resourceId:date:slotId`). */
 export function findConflicts(bookings: Booking[]): Conflict[] {
   const groups = new Map<string, Booking[]>()
   for (const b of bookings) {
     if (b.status !== 'pending') continue
-    const key = `${b.resourceId}|${b.date}|${b.slotId}`
+    const key = `${b.resourceId}:${b.date}:${b.slotId}`
     groups.set(key, [...(groups.get(key) ?? []), b])
   }
   return [...groups.entries()]
     .filter(([, list]) => list.length > 1)
-    .map(([key, list]) => ({
-      key,
-      resourceId: list[0].resourceId,
-      date: list[0].date,
-      slotId: list[0].slotId,
-      bookings: list,
-    }))
-    .sort((a, b) => a.date.localeCompare(b.date))
-}
-
-function byDeadlineThenSubmitted(a: Booking, b: Booking) {
-  return a.deadline.localeCompare(b.deadline) || a.createdAt.localeCompare(b.createdAt)
-}
-
-export function recommendAllocation(conflict: Conflict, bookings: Booking[]): AllocationRecommendation {
-  const ranked = [...conflict.bookings].sort(byDeadlineThenSubmitted)
-  const [winner, ...others] = ranked
-  const taken = new Set(
-    bookings.filter((b) => isActive(b) && !others.some((o) => o.id === b.id)).map((b) => `${b.date}|${b.slotId}|${b.resourceId}`),
-  )
-  const lastDay = addDays(todayIso(), BOOKING_WINDOW_DAYS)
-  const reassignments: Reassignment[] = []
-  const unplacedIds: string[] = []
-
-  for (const other of others) {
-    let placed = false
-    for (let date = conflict.date; date <= lastDay && !placed; date = addDays(date, 1)) {
-      for (const slot of TIME_SLOTS) {
-        const key = `${date}|${slot.id}|${conflict.resourceId}`
-        if (taken.has(key)) continue
-        taken.add(key)
-        reassignments.push({ bookingId: other.id, date, slotId: slot.id, afterDeadline: date > other.deadline })
-        placed = true
-        break
-      }
-    }
-    if (!placed) unplacedIds.push(other.id)
-  }
-
-  const tie = others.some((o) => o.deadline === winner.deadline)
-  const reason = tie
-    ? `${winner.studentName} shares the nearest project deadline and submitted first, so they keep the slot.`
-    : `${winner.studentName} has the nearest project deadline, so they keep the slot.`
-
-  return { conflictKey: conflict.key, winnerId: winner.id, reason, reassignments, unplacedIds }
+    .map(([key, list]) => ({ key, resourceId: list[0].resourceId, date: list[0].date, slotId: list[0].slotId, bookings: list }))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.slotId.localeCompare(b.slotId))
 }
 
 export interface UtilisationRow {
@@ -138,7 +102,7 @@ export function utilisationByDepartment(resources: LabResource[], bookings: Book
   const start = todayIso()
   const end = addDays(start, days - 1)
   const capacityPerResource = days * TIME_SLOTS.length
-  const departments = [...new Set(resources.map((r) => r.department))]
+  const departments = [...new Set(resources.map((r) => r.department))].sort()
 
   return departments.map((department) => {
     const ids = new Set(resources.filter((r) => r.department === department && r.status === 'available').map((r) => r.id))

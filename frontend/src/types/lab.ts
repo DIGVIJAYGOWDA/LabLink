@@ -38,7 +38,7 @@ export interface Booking {
   status: BookingStatus
   /** ISO timestamp */
   createdAt: string
-  facultyNote?: string
+  facultyNote?: string | null
 }
 
 export interface NewBookingInput {
@@ -64,7 +64,7 @@ export interface Activity {
 
 export type SlotState = 'free' | 'requested' | 'booked'
 
-/** Two or more pending requests for the same resource, date and slot. */
+/** Two or more pending requests for the same resource, date and slot. `key` is the backend conflict id. */
 export interface Conflict {
   key: string
   resourceId: string
@@ -81,12 +81,29 @@ export interface Reassignment {
 }
 
 export interface AllocationRecommendation {
-  conflictKey: string
+  conflictId: string
   winnerId: string
   reason: string
   reassignments: Reassignment[]
   /** Requests for which no free slot was found in the booking window. */
   unplacedIds: string[]
+  /** "gemini" when the explanation was written by the AI model. */
+  explanationSource: 'rule' | 'gemini'
+}
+
+export interface ConflictResolution {
+  recommendation: AllocationRecommendation
+  bookings: Booking[]
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface ChatResponse {
+  reply: string
+  source: 'gemini' | 'fallback'
 }
 
 export interface LabData {

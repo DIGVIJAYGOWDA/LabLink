@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { FlaskConical, Menu, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -41,7 +42,7 @@ export default function Navbar() {
 
         <div className="flex items-center gap-2">
           <Button asChild className="hidden md:inline-flex">
-            <a href="#how-it-works">Get Started</a>
+            <Link to="/app">Get Started</Link>
           </Button>
           <Button
             variant="ghost"
@@ -73,9 +74,9 @@ export default function Navbar() {
             ))}
             <li className="pt-2">
               <Button asChild className="w-full">
-                <a href="#how-it-works" onClick={close}>
+                <Link to="/app" onClick={close}>
                   Get Started
-                </a>
+                </Link>
               </Button>
             </li>
           </ul>
