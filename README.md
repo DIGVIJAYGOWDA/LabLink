@@ -2,7 +2,7 @@
 
 **Making College Laboratories More Accessible.** Hackathon project (Hack2Skill).
 
-> Status: Phase 1 - architecture and scaffolding only. No application features yet.
+> Status: Phase 2 complete - landing page. Application features (catalogue, booking, approvals, AI) come in later phases.
 
 ## Stack
 
@@ -16,6 +16,10 @@
 | Deployment | Google Cloud Run |
 
 No login or signup: the app opens directly.
+
+## What LabLink does
+
+A GenAI-powered campus laboratory resource-sharing platform. Students discover specialised equipment, development kits and lab workstations across departments, book slots, and submit project-based access requests that faculty approve. AI recommends fair, feasible allocations when schedules conflict, using project deadlines, availability and student requirements.
 
 ## Structure
 
@@ -56,6 +60,25 @@ npm run dev
 ```
 
 The home page shows whether the backend is reachable.
+
+## Phase 2: landing page
+
+Routes (React Router):
+
+| Route | Page |
+|-------|------|
+| `/` | Landing page |
+| `/status` | Phase 1 backend health status page |
+
+Landing sections: sticky navbar with mobile menu, hero with dashboard preview, problem, solution (About), features, how it works, call to action, footer. Smooth scrolling is CSS-only and respects `prefers-reduced-motion`.
+
+Code layout:
+
+- `frontend/src/pages/Landing.tsx` composes the sections.
+- `frontend/src/components/landing/` holds the section components and shared `Section`, `SectionHeading` and `FeatureCard`.
+- `frontend/src/data/landing.ts` holds all landing copy and icons, so content changes need no component edits.
+
+The hero dashboard is a static preview with clearly labelled sample data. No backend calls, authentication or new dependencies were added in this phase.
 
 ## Environment variables
 
