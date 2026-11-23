@@ -71,7 +71,9 @@ def check_settings():
     report(OK, f"ENVIRONMENT={settings.environment}, DATA_BACKEND={settings.data_backend}")
 
     origins = settings.cors_origin_list
-    if any(o in ("http://localhost:5173", "http://127.0.0.1:5173") for o in origins) or settings.is_production:
+    if not settings.is_production:
+        report(OK, "CORS (development): any http://localhost:<port> frontend is allowed")
+    elif origins:
         report(OK, f"CORS allows: {', '.join(origins)}")
     else:
         report(WARN, f"CORS does not include the local frontend (http://localhost:5173): {origins}",

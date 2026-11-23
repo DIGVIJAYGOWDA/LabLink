@@ -13,6 +13,9 @@ def register_middleware(app: FastAPI, settings: Settings) -> None:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
+        # Development: allow any local port (Vite moves to 5174, 5175... when 5173 is busy).
+        # Production: only the origins listed in CORS_ORIGINS.
+        allow_origin_regex=None if settings.is_production else r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
         allow_methods=["*"],
         allow_headers=["*"],
     )

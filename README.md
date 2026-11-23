@@ -179,6 +179,25 @@ cd backend && pip install -r requirements-dev.txt && pytest -q      # 29 API tes
 cd frontend && npm run build && npm run lint
 ```
 
+## Deploy on Vercel (free, recommended)
+
+Two Vercel projects from the same GitHub repo. Push your latest code to GitHub first (never commit `.env` files).
+
+**1. Backend** - Vercel -> Add New -> Project -> import the repo:
+- Root Directory: `backend` (FastAPI is detected automatically from `app/main.py`; `backend/vercel.json` pins the Seoul region `icn1`, next to the Supabase database)
+- Environment Variables:
+  `ENVIRONMENT=production`, `DATA_BACKEND=supabase`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, `CORS_ORIGINS=https://placeholder.vercel.app`
+- Deploy, then open `https://<backend>.vercel.app/api/health` -> `{"status":"ok",...}`
+
+**2. Frontend** - Add New -> Project -> import the same repo again:
+- Root Directory: `frontend` (Vite is detected automatically; `frontend/vercel.json` adds SPA routing and security headers)
+- Environment Variable: `VITE_API_BASE_URL=https://<backend>.vercel.app` (no trailing slash)
+- Deploy
+
+**3. Connect them** - in the backend project: Settings -> Environment Variables -> set `CORS_ORIGINS` to the frontend URL (e.g. `https://lablink-web.vercel.app`) -> Deployments -> Redeploy.
+
+Environment variable changes only apply after a redeploy. Every `git push` redeploys both projects automatically.
+
 ## Deploy (Google Cloud Run + Supabase)
 
 Both services ship as containers: `backend/Dockerfile` (FastAPI + uvicorn) and `frontend/Dockerfile` (static build served by nginx with SPA routing). The frontend reads the API URL at start-up from `API_BASE_URL`, so the same image works everywhere.
