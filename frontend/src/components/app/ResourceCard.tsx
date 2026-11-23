@@ -1,19 +1,23 @@
-import { MapPin, ShieldCheck, Wrench, Zap } from 'lucide-react'
+import { CalendarClock, MapPin, ShieldCheck, Wrench, Zap } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { formatDate, todayIso } from '@/lib/date'
+import { BOOKING_WINDOW_DAYS, slotLabel, type SlotSuggestion } from '@/services/labService'
 import type { LabResource } from '@/types/lab'
 import { RESOURCE_TYPE } from './resourceTypes'
 
 interface ResourceCardProps {
   resource: LabResource
   utilisation: number
+  /** Soonest completely free slot, so students see availability before opening the form. */
+  nextFree?: SlotSuggestion
   canBook: boolean
   onBook: () => void
 }
 
-export default function ResourceCard({ resource, utilisation, canBook, onBook }: ResourceCardProps) {
+export default function ResourceCard({ resource, utilisation, nextFree, canBook, onBook }: ResourceCardProps) {
   const { icon: Icon, label } = RESOURCE_TYPE[resource.type]
   const unavailable = resource.status === 'maintenance'
 
@@ -52,6 +56,22 @@ export default function ResourceCard({ resource, utilisation, canBook, onBook }:
           </Badge>
         )}
       </div>
+
+      {!unavailable && (
+        <p className="mt-3 flex items-center gap-1.5 rounded-md bg-muted/60 px-2.5 py-1.5 text-xs">
+          <CalendarClock className="size-3.5 text-brand" aria-hidden="true" />
+          {nextFree ? (
+            <>
+              <span className="text-muted-foreground">Next free:</span>
+              <span className="font-medium">
+                {nextFree.date === todayIso() ? 'Today' : formatDate(nextFree.date)}, {slotLabel(nextFree.slotId)}
+              </span>
+            </>
+          ) : (
+            <span className="text-muted-foreground">No free slots in the next {BOOKING_WINDOW_DAYS} days</span>
+          )}
+        </p>
+      )}
 
       {!unavailable && (
         <div className="mt-4">

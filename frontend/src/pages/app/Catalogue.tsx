@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/button'
 import { Input, Label, Select } from '@/components/ui/form'
 import { PageLoader } from '@/components/ui/spinner'
 import { useLabStore } from '@/hooks/useLabStore'
-import { resourceUtilisation } from '@/services/labService'
+import { addDays, todayIso } from '@/lib/date'
+import { BOOKING_WINDOW_DAYS, resourceUtilisation, suggestFreeSlots } from '@/services/labService'
 import type { LabResource, ResourceType } from '@/types/lab'
 
 export default function Catalogue() {
@@ -106,6 +107,7 @@ export default function Catalogue() {
                   key={r.id}
                   resource={r}
                   utilisation={resourceUtilisation(r.id, bookings)}
+                  nextFree={suggestFreeSlots(bookings, r.id, addDays(todayIso(), BOOKING_WINDOW_DAYS), { limit: 1 })[0]}
                   canBook={role === 'student'}
                   onBook={() => setBooking(r)}
                 />

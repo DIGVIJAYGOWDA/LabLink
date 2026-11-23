@@ -1,7 +1,8 @@
 import { Link, NavLink } from 'react-router-dom'
-import { Activity as ActivityIcon, FlaskConical } from 'lucide-react'
+import { Activity as ActivityIcon, FlaskConical, Sparkles } from 'lucide-react'
 
 import { useLabStore } from '@/hooks/useLabStore'
+import { openAssistant } from '@/lib/assistant'
 import { cn } from '@/lib/utils'
 import { APP_NAV } from './nav'
 
@@ -50,7 +51,23 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
           )}
         </NavLink>
       ))}
-      <div className="mt-auto border-t pt-3">
+      <div className="mt-auto rounded-xl bg-gradient-to-br from-brand to-cyan-700 p-4 text-white shadow-md shadow-brand/20">
+        <p className="flex items-center gap-1.5 text-sm font-semibold">
+          <Sparkles className="size-4" aria-hidden="true" /> LabLink AI
+        </p>
+        <p className="mt-1 text-xs text-white/85">Ask which labs are free, or what your requests are waiting on.</p>
+        <button
+          type="button"
+          onClick={() => {
+            onNavigate?.()
+            openAssistant()
+          }}
+          className="mt-3 w-full rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-brand transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+        >
+          Ask a question
+        </button>
+      </div>
+      <div className="mt-3 border-t pt-3">
         <NavLink
           to="/status"
           onClick={onNavigate}

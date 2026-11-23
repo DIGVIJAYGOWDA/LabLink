@@ -4,6 +4,7 @@ import { ArrowUp, Bot, RotateCcw, Sparkles, X } from 'lucide-react'
 import FormattedText from '@/components/app/FormattedText'
 import { Button } from '@/components/ui/button'
 import { useLabStore } from '@/hooks/useLabStore'
+import { OPEN_ASSISTANT_EVENT } from '@/lib/assistant'
 import { cn } from '@/lib/utils'
 import { errorMessage } from '@/services/api'
 import { sendChat } from '@/services/assistantService'
@@ -42,6 +43,12 @@ export default function AssistantChat() {
   useEffect(() => {
     if (open) inputRef.current?.focus()
   }, [open])
+
+  useEffect(() => {
+    const onOpen = () => setOpen(true)
+    window.addEventListener(OPEN_ASSISTANT_EVENT, onOpen)
+    return () => window.removeEventListener(OPEN_ASSISTANT_EVENT, onOpen)
+  }, [])
 
   useEffect(() => {
     if (!open) return

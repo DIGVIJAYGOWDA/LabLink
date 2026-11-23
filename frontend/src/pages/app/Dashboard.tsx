@@ -6,7 +6,7 @@ import QuickActions from '@/components/app/dashboard/QuickActions'
 import WelcomeBanner from '@/components/app/dashboard/WelcomeBanner'
 import UtilisationInsights from '@/components/app/UtilisationInsights'
 import { UtilisationBars, WeeklyBookingsChart } from '@/components/app/charts'
-import { LoadError, StatCard, StatusBadge } from '@/components/app/common'
+import { DateTile, LoadError, StatCard, StatusBadge } from '@/components/app/common'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageLoader } from '@/components/ui/spinner'
@@ -38,6 +38,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatCard
+          tone="teal"
           icon={Boxes}
           label="Available resources"
           value={`${available}/${resources.length}`}
@@ -45,11 +46,12 @@ export default function Dashboard() {
           to="/app/catalogue?available=1"
         />
         {isFaculty ? (
-          <StatCard icon={CalendarCheck} label="Confirmed this week" value={thisWeek} hint="All departments, next 7 days" to="/app/bookings?tab=upcoming" />
+          <StatCard tone="sky" icon={CalendarCheck} label="Confirmed this week" value={thisWeek} hint="All departments, next 7 days" to="/app/bookings?tab=upcoming" />
         ) : (
-          <StatCard icon={CalendarCheck} label="Upcoming bookings" value={upcoming.length} hint="Confirmed slots" to="/app/bookings?tab=upcoming" />
+          <StatCard tone="sky" icon={CalendarCheck} label="Upcoming bookings" value={upcoming.length} hint="Confirmed slots" to="/app/bookings?tab=upcoming" />
         )}
         <StatCard
+          tone="amber"
           icon={Clock}
           label={isFaculty ? 'Pending requests' : 'Awaiting approval'}
           value={pending.length}
@@ -57,6 +59,7 @@ export default function Dashboard() {
           to={isFaculty ? '/app/approvals#pending' : '/app/bookings?tab=pending'}
         />
         <StatCard
+          tone="rose"
           icon={AlertTriangle}
           label="Slot conflicts"
           value={scopedConflicts.length}
@@ -87,7 +90,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
+      <div className="mt-6 grid items-start gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle>{isFaculty ? 'Upcoming confirmed bookings' : 'Your upcoming bookings'}</CardTitle>
@@ -99,9 +102,10 @@ export default function Dashboard() {
             {upcoming.length ? (
               <ul className="divide-y">
                 {upcoming.slice(0, 5).map((b) => (
-                  <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 py-3 first:pt-0 last:pb-0">
-                    <div>
-                      <p className="text-sm font-medium">{getResource(b.resourceId)?.name}</p>
+                  <li key={b.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                    <DateTile iso={b.date} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{getResource(b.resourceId)?.name}</p>
                       <p className="text-xs text-muted-foreground">
                         {formatDate(b.date)} · {slotLabel(b.slotId)}
                         {isFaculty && ` · ${b.studentName}`}
@@ -112,12 +116,15 @@ export default function Dashboard() {
                 ))}
               </ul>
             ) : (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                No upcoming bookings.{' '}
-                <Link to="/app/catalogue" className="font-medium text-brand underline-offset-4 hover:underline">
-                  Browse the catalogue
-                </Link>
-              </p>
+              <div className="flex flex-col items-center gap-3 py-6 text-center">
+                <span className="flex size-11 items-center justify-center rounded-full bg-brand-soft text-brand">
+                  <CalendarCheck className="size-5" aria-hidden="true" />
+                </span>
+                <p className="text-sm text-muted-foreground">No upcoming bookings yet.</p>
+                <Button asChild size="sm">
+                  <Link to="/app/catalogue">Find equipment</Link>
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -127,7 +134,7 @@ export default function Dashboard() {
             <CardTitle>Recent activity</CardTitle>
           </CardHeader>
           <CardContent>
-            <ActivityFeed items={activities.slice(0, 6)} />
+            <ActivityFeed items={activities.slice(0, 5)} />
           </CardContent>
         </Card>
       </div>
