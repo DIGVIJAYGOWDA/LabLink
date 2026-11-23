@@ -1,9 +1,13 @@
 """Slot conflicts and fair allocation.
 
-The recommendation uses a transparent, deadline-first rule: the request with the nearest
-project deadline keeps the slot (earliest submission breaks ties); the others move to the
-next free slot for the same resource. The README's planned Gemini model can later refine
-or explain this; that integration is not part of this phase.
+The recommendation is rule-based so it is always feasible and explainable:
+1. Urgency: the request with the nearest project deadline keeps the slot.
+2. Fairness: on equal deadlines, the student who already holds fewer confirmed slots on this
+   resource in the booking window goes first, so nobody monopolises shared equipment.
+3. Submission time breaks any remaining tie.
+Every other request moves to the earliest free slot for the same resource, searching from
+today, so it lands before its own deadline whenever any such slot exists. Gemini then
+explains the decision to faculty using the deadlines and the students' stated requirements.
 """
 
 from datetime import date, timedelta
@@ -44,8 +48,26 @@ def get_conflict(repos: Repositories, cid: str) -> Conflict:
     return conflict
 
 
+def recent_usage(bookings: list[Booking], resource_id: str, student: str, exclude: set[str]) -> int:
+    """Confirmed slots the student already holds on this resource within the booking window."""
+    start, end = scheduling.today(), scheduling.window_end()
+    return sum(
+        1
+        for b in bookings
+        if b.resource_id == resource_id
+        and b.student_name == student
+        and b.status == "confirmed"
+        and b.id not in exclude
+        and start <= b.date <= end
+    )
+
+
 def recommend(conflict: Conflict, bookings: list[Booking]) -> AllocationRecommendation:
-    ranked = sorted(conflict.bookings, key=lambda b: (b.deadline, b.created_at))
+    conflict_ids = {b.id for b in conflict.bookings}
+    usage = {
+        b.id: recent_usage(bookings, conflict.resource_id, b.student_name, conflict_ids) for b in conflict.bookings
+    }
+    ranked = sorted(conflict.bookings, key=lambda b: (b.deadline, usage[b.id], b.created_at))
     winner, others = ranked[0], ranked[1:]
     other_ids = {o.id for o in others}
     taken = {
@@ -56,7 +78,8 @@ def recommend(conflict: Conflict, bookings: list[Booking]) -> AllocationRecommen
 
     reassignments: list[Reassignment] = []
     unplaced: list[str] = []
-    start = max(conflict.date, scheduling.today())
+    # Search from today, not from the conflict date: an earlier free slot is better for a near deadline.
+    start = scheduling.today()
     last = scheduling.window_end()
     for other in others:
         slot = None
@@ -75,23 +98,37 @@ def recommend(conflict: Conflict, bookings: list[Booking]) -> AllocationRecommen
             Reassignment(booking_id=other.id, date=slot[0], slot_id=slot[1], after_deadline=slot[0] > other.deadline)
         )
 
-    tie = any(o.deadline == winner.deadline for o in others)
-    reason = (
-        f"{winner.student_name} shares the nearest project deadline and submitted first, so they keep the slot."
-        if tie
-        else f"{winner.student_name} has the nearest project deadline, so they keep the slot."
-    )
+    tied = [o for o in others if o.deadline == winner.deadline]
+    if not tied:
+        reason = f"{winner.student_name} has the nearest project deadline, so they keep the slot."
+    elif any(usage[o.id] > usage[winner.id] for o in tied):
+        reason = (
+            f"{winner.student_name} shares the nearest project deadline and has had less time on this "
+            "equipment this fortnight, so they keep the slot."
+        )
+    else:
+        reason = (
+            f"{winner.student_name} shares the nearest project deadline and submitted first, so they keep the slot."
+        )
+    late = [r for r in reassignments if r.after_deadline]
+    if reassignments and not late:
+        reason += " Every other request moves to a free slot before its own deadline."
     return AllocationRecommendation(
         conflict_id=conflict.id, winner_id=winner.id, reason=reason, reassignments=reassignments, unplaced_ids=unplaced
     )
 
 
-def _ai_explanation(conflict: Conflict, rec: AllocationRecommendation, resource_name: str) -> str | None:
+def _ai_explanation(
+    conflict: Conflict, rec: AllocationRecommendation, resource_name: str, bookings: list[Booking]
+) -> str | None:
     """Ask Gemini to explain the decision using deadlines AND the students' stated requirements.
     The allocation itself stays rule-based so it is always feasible and consistent."""
+    conflict_ids = {b.id for b in conflict.bookings}
     requests = "\n".join(
         f"- id {b.id}: {b.student_name}, project '{b.project_title}', deadline {b.deadline.isoformat()}, "
-        f"submitted {b.created_at:%Y-%m-%d %H:%M}, requirements: {b.purpose or 'not given'}"
+        f"submitted {b.created_at:%Y-%m-%d %H:%M}, requirements: {b.purpose or 'not given'}, "
+        f"confirmed slots already held on this equipment: "
+        f"{recent_usage(bookings, conflict.resource_id, b.student_name, conflict_ids)}"
         for b in conflict.bookings
     )
     moves = (
@@ -107,6 +144,8 @@ def _ai_explanation(conflict: Conflict, rec: AllocationRecommendation, resource_
         f"{conflict.date.isoformat()} {scheduling.slot_label(conflict.slot_id)}.\n"
         f"Competing requests:\n{requests}\n\nDecision: {rec.winner_id} keeps the slot.\nMoves:\n{moves}\n"
         f"Unplaced: {', '.join(rec.unplaced_ids) or 'none'}\n\n"
+        "Rule: nearest deadline first; on equal deadlines, less recent use of this equipment first; then earlier "
+        "submission.\n\n"
         "In at most 2 short sentences for faculty, explain why this allocation is fair and feasible, referring to the "
         "deadlines and the stated requirements. Use student names, not ids. "
         "Do not change the decision. Plain text only."
@@ -121,9 +160,10 @@ def _ai_explanation(conflict: Conflict, rec: AllocationRecommendation, resource_
 
 def get_recommendation(repos: Repositories, cid: str) -> AllocationRecommendation:
     conflict = get_conflict(repos, cid)
-    rec = recommend(conflict, repos.bookings.list())
+    bookings = repos.bookings.list()
+    rec = recommend(conflict, bookings)
     if gemini.gemini_configured():
-        explanation = _ai_explanation(conflict, rec, get_resource(repos, conflict.resource_id).name)
+        explanation = _ai_explanation(conflict, rec, get_resource(repos, conflict.resource_id).name, bookings)
         if explanation:
             rec = rec.model_copy(update={"reason": explanation, "explanation_source": "gemini"})
     return rec

@@ -169,15 +169,32 @@ Supabase PostgreSQL. Schema, constraints and setup steps: [`database/README.md`]
 ## AI features (Google Gemini)
 
 - **AI lab assistant** - the "Ask LabLink AI" button in the app. Students ask things like "Which labs are free today?" or "When is the GPU Workstation free this week?"; faculty can ask for pending requests and conflicts. `POST /api/assistant/chat` sends Gemini a compact snapshot of live data (catalogue, free slots for 7 days, the user's own bookings), so answers come from the database. Students never receive other students' booking details. Limited to `ASSISTANT_RATE_LIMIT_PER_MINUTE` questions per client.
-- **Fair conflict allocation** - the allocation itself is a transparent rule (nearest project deadline keeps the slot, earliest submission breaks ties, others move to the next free slot), so it is always feasible. When a Gemini key is set, Gemini writes the explanation faculty see, weighing the deadlines and each student's stated requirements.
+- **Fair conflict allocation** - the allocation itself is a transparent rule, so it is always feasible: the nearest project deadline keeps the slot; on equal deadlines the student with less recent time on that equipment goes first; then the earlier submission. Every other request moves to the earliest free slot from today, so it lands before its own deadline whenever possible. When a Gemini key is set, Gemini writes the explanation faculty see, weighing the deadlines and each student's stated requirements.
+- **Intelligent slot booking** - when a student picks a slot another team has requested, or a day that is full, the booking form offers the soonest completely free slots in one click.
+- **Utilisation insights** - the dashboard names the most in-demand equipment and the equipment that is free all week, with a role-specific action (book early / add lab hours or promote idle kit).
 - Without `GEMINI_API_KEY` both still work: the chatbot lists free slots for today and tomorrow, and explanations use the built-in text.
 
 ## Testing
 
 ```bash
-cd backend && pip install -r requirements-dev.txt && pytest -q      # 29 API tests (in-memory data, no network)
-cd frontend && npm run build && npm run lint
+# Backend: 39 API and allocation tests (in-memory data, no network), lint and format check
+cd backend && pip install -r requirements-dev.txt
+pytest -q --cov=app && ruff check . && ruff format --check .
+
+# Frontend: unit, component and booking-form tests (Vitest + Testing Library), lint, type-check, build
+cd frontend && npm install
+npm run test:coverage && npm run lint && npm run typecheck && npm run build
 ```
+
+GitHub Actions (`.github/workflows/ci.yml`) runs all of these on every push and pull request.
+
+## Security and accessibility
+
+- API responses carry `nosniff`, `X-Frame-Options: DENY`, a strict CSP, `no-store` and (in production) HSTS; bodies over 64 KB are rejected with 413; CORS allows only the configured origins and the methods the app uses; API docs are hidden in production.
+- Inputs are validated with Pydantic; the database is reached only through the service-role key on the server, with RLS on and no grants for `anon`/`authenticated`. The chatbot is rate-limited and students never receive other students' booking details.
+- The website sends a CSP, Permissions-Policy and HSTS (`frontend/vercel.json`).
+- Keyboard and screen-reader support: skip link, labelled landmarks and radio groups, visible focus, `aria-live` for toasts and suggestions, and all animations respect `prefers-reduced-motion`. Automated axe-core (WCAG 2.1 AA) checks report no violations on the main pages.
+- Demo limitation: the Student/Faculty switch is a demo toggle, not a login. A production deployment would add Supabase Auth and enforce the faculty role on approve/resolve endpoints.
 
 ## Deploy on Render (free)
 

@@ -5,7 +5,7 @@ Each request sends Gemini a compact snapshot of live data (catalogue, free slots
 Students only see their own booking details; faculty also see pending requests and conflicts.
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from app.core.errors import BusinessRuleError
 from app.repositories import Repositories
@@ -56,7 +56,7 @@ def build_context(repos: Repositories, role: str, student: str | None) -> str:
     bookings = repos.bookings.list()
     names = {r.id: r.name for r in resources}
     today = scheduling.today()
-    now = datetime.now()
+    now = scheduling.now()
 
     lines = [
         f"Now: {now:%A %d %B %Y, %H:%M}. "

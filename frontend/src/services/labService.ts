@@ -131,3 +131,66 @@ export function bookingsPerDay(bookings: Booking[], days = 7) {
     }
   })
 }
+
+const SLOT_START_HOUR: Record<SlotId, number> = { s1: 9, s2: 11, s3: 14, s4: 16 }
+
+/** True when the slot has already started (or the day is in the past). */
+export function slotStarted(date: string, slotId: SlotId, now = new Date()) {
+  const today = todayIso()
+  return date < today || (date === today && now.getHours() >= SLOT_START_HOUR[slotId])
+}
+
+export interface SlotSuggestion {
+  date: string
+  slotId: SlotId
+}
+
+/**
+ * Earliest completely free slots for a resource, from today up to `lastDay`.
+ * Used to steer students away from slots that are already booked or contested.
+ */
+export function suggestFreeSlots(
+  bookings: Booking[],
+  resourceId: string,
+  lastDay: string,
+  options: { limit?: number; exclude?: SlotSuggestion; now?: Date } = {},
+): SlotSuggestion[] {
+  const { limit = 3, exclude, now = new Date() } = options
+  const found: SlotSuggestion[] = []
+  for (let date = todayIso(); date <= lastDay && found.length < limit; date = addDays(date, 1)) {
+    for (const s of TIME_SLOTS) {
+      if (found.length >= limit) break
+      if (exclude && exclude.date === date && exclude.slotId === s.id) continue
+      if (slotStarted(date, s.id, now)) continue
+      if (slotState(bookings, resourceId, date, s.id) === 'free') found.push({ date, slotId: s.id })
+    }
+  }
+  return found
+}
+
+export interface UtilisationInsights {
+  /** Most contested resource this week (most active bookings), if any are booked at all. */
+  busiest: { resource: LabResource; active: number; percent: number } | null
+  /** Available resources with no bookings in the next `days` days. */
+  idle: LabResource[]
+}
+
+/** Where demand is concentrated and which equipment is sitting unused, over the next `days` days. */
+export function utilisationInsights(resources: LabResource[], bookings: Booking[], days = 7): UtilisationInsights {
+  const start = todayIso()
+  const end = addDays(start, days - 1)
+  const available = resources.filter((r) => r.status === 'available')
+  const counts = new Map<string, number>()
+  for (const b of bookings) {
+    if (isActive(b) && b.date >= start && b.date <= end) counts.set(b.resourceId, (counts.get(b.resourceId) ?? 0) + 1)
+  }
+  let busiest: UtilisationInsights['busiest'] = null
+  for (const r of available) {
+    const active = counts.get(r.id) ?? 0
+    if (active > 0 && (!busiest || active > busiest.active)) {
+      busiest = { resource: r, active, percent: Math.round((active / (days * TIME_SLOTS.length)) * 100) }
+    }
+  }
+  const idle = available.filter((r) => !counts.get(r.id)).sort((a, b) => a.name.localeCompare(b.name))
+  return { busiest, idle }
+}

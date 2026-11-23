@@ -7,6 +7,7 @@ upcoming activity. Not used by business logic directly.
 from datetime import UTC, date, datetime, timedelta
 
 from app.schemas.lab import Activity, Booking, Resource
+from app.services import scheduling
 
 CURRENT_STUDENT = "Demo Student"
 
@@ -318,5 +319,5 @@ def _activities(now: datetime) -> list[Activity]:
 
 def build_seed() -> tuple[list[Resource], list[Booking], list[Activity]]:
     now = datetime.now(UTC)
-    today = date.today()
+    today = scheduling.today()
     return _resources(), _bookings(today, now), _activities(now)

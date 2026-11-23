@@ -1,7 +1,7 @@
 """API tests for LabLink (in-memory data store, no network). Run from backend/: `pytest -q`."""
 
 import os
-from datetime import date, timedelta
+from datetime import timedelta
 
 os.environ["DATA_BACKEND"] = "memory"
 os.environ["GEMINI_API_KEY"] = ""
@@ -12,9 +12,9 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app.core.config import get_settings  # noqa: E402
 from app.main import app  # noqa: E402
 from app.repositories import get_repositories  # noqa: E402
-from app.services import gemini  # noqa: E402
+from app.services import gemini, scheduling  # noqa: E402
 
-D = lambda n: (date.today() + timedelta(days=n)).isoformat()  # noqa: E731
+D = lambda n: (scheduling.today() + timedelta(days=n)).isoformat()  # noqa: E731
 
 
 @pytest.fixture()
@@ -401,3 +401,79 @@ def test_cors_rejects_unlisted_methods(client):
         headers={"Origin": "http://localhost:5173", "Access-Control-Request-Method": "DELETE"},
     )
     assert res.status_code == 400
+
+
+# ---------- Allocation rules (unit) ----------
+
+
+def _bk(bid, student, day, slot="s3", deadline=10, status="pending", created_min=0):
+    from datetime import datetime
+
+    from app.schemas.lab import Booking
+
+    return Booking(
+        id=bid,
+        resource_id="r-x",
+        date=scheduling.today() + timedelta(days=day),
+        slot_id=slot,
+        student_name=student,
+        project_title="Project",
+        purpose="Needs the equipment",
+        deadline=scheduling.today() + timedelta(days=deadline),
+        status=status,
+        created_at=datetime(2026, 1, 1, 9, created_min),
+    )
+
+
+def _conflict(*bookings):
+    from app.services.allocation import find_conflicts
+
+    (conflict,) = find_conflicts(list(bookings))
+    return conflict
+
+
+def test_allocation_nearest_deadline_wins():
+    from app.services.allocation import recommend
+
+    a, b = _bk("a", "Asha", 3, deadline=9), _bk("b", "Ben", 3, deadline=4, created_min=5)
+    rec = recommend(_conflict(a, b), [a, b])
+    assert rec.winner_id == "b" and "nearest project deadline" in rec.reason
+
+
+def test_allocation_equal_deadline_prefers_less_recent_use():
+    from app.services.allocation import recommend
+
+    a = _bk("a", "Asha", 3, deadline=6)  # submitted first...
+    b = _bk("b", "Ben", 3, deadline=6, created_min=5)
+    held = [_bk(f"h{i}", "Asha", 1, slot=s, status="confirmed") for i, s in enumerate(["s1", "s2"])]
+    rec = recommend(_conflict(a, b), [a, b, *held])
+    assert rec.winner_id == "b"  # ...but Asha already holds two slots on this equipment
+    assert "less time on this equipment" in rec.reason
+
+
+def test_allocation_moves_loser_to_earliest_slot_from_today():
+    from app.services.allocation import recommend
+
+    a, b = _bk("a", "Asha", 5, slot="s1", deadline=6), _bk("b", "Ben", 5, slot="s1", deadline=8, created_min=5)
+    rec = recommend(_conflict(a, b), [a, b])
+    (move,) = rec.reassignments
+    assert move.booking_id == "b" and not move.after_deadline
+    assert move.date < scheduling.today() + timedelta(days=5)  # an earlier free day, not after the conflict
+    assert "before its own deadline" in rec.reason
+
+
+def test_scheduling_uses_campus_time_zone(monkeypatch):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    # 20:00 UTC is already 01:30 the next day in India: "today" must follow the campus clock.
+    fixed = datetime(2026, 1, 1, 20, 0, tzinfo=ZoneInfo("UTC"))
+
+    class FakeDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed.astimezone(tz)
+
+    monkeypatch.setattr(scheduling, "datetime", FakeDateTime)
+    assert scheduling.today().isoformat() == "2026-01-02"
+    assert not scheduling.slot_started(scheduling.today(), "s1")

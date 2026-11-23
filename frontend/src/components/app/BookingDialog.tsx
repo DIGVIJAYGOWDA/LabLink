@@ -1,8 +1,8 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { Info } from 'lucide-react'
 
+import SlotSuggestions from '@/components/app/SlotSuggestions'
 import { Spinner } from '@/components/ui/spinner'
-
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
@@ -12,10 +12,8 @@ import { useLabStore } from '@/hooks/useLabStore'
 import { addDays, formatDate, todayIso } from '@/lib/date'
 import { cn } from '@/lib/utils'
 import { ApiError, errorMessage } from '@/services/api'
-import { BOOKING_WINDOW_DAYS, TIME_SLOTS, slotLabel, slotState } from '@/services/labService'
+import { BOOKING_WINDOW_DAYS, TIME_SLOTS, slotLabel, slotStarted, slotState, suggestFreeSlots } from '@/services/labService'
 import type { LabResource, SlotId } from '@/types/lab'
-
-const SLOT_START_HOUR: Record<SlotId, number> = { s1: 9, s2: 11, s3: 14, s4: 16 }
 
 type Errors = Partial<Record<'date' | 'slotId' | 'projectTitle' | 'purpose' | 'deadline', string>>
 
@@ -36,7 +34,7 @@ export default function BookingDialog({ resource, onClose }: { resource: LabReso
   const slots = useMemo(
     () =>
       TIME_SLOTS.map((s) => {
-        const past = date === today && new Date().getHours() >= SLOT_START_HOUR[s.id]
+        const past = slotStarted(date, s.id)
         const mine = bookings.some(
           (b) =>
             b.resourceId === resource.id && b.date === date && b.slotId === s.id && b.studentName === currentUser &&
@@ -44,10 +42,20 @@ export default function BookingDialog({ resource, onClose }: { resource: LabReso
         )
         return { ...s, state: slotState(bookings, resource.id, date, s.id), past, mine }
       }),
-    [bookings, resource.id, date, today, currentUser],
+    [bookings, resource.id, date, currentUser],
   )
 
   const selected = slots.find((s) => s.id === slotId)
+  const dayFull = slots.every((s) => s.past || s.state === 'booked' || s.mine)
+  const contested = selected?.state === 'requested' && !selected.mine
+  // Intelligent booking: when the chosen slot is contested or the whole day is taken, offer the soonest free slots.
+  const suggestions = useMemo(
+    () =>
+      contested || dayFull
+        ? suggestFreeSlots(bookings, resource.id, lastDay, { exclude: slotId ? { date, slotId } : undefined })
+        : [],
+    [contested, dayFull, bookings, resource.id, lastDay, date, slotId],
+  )
 
   function validate(): Errors {
     const e: Errors = {}
@@ -142,8 +150,8 @@ export default function BookingDialog({ resource, onClose }: { resource: LabReso
         </Field>
 
         <fieldset>
-          <legend className="text-sm font-medium">Time slot</legend>
-          <div role="radiogroup" aria-describedby={errors.slotId ? 'bk-slotId-msg' : undefined} className="mt-1.5 grid grid-cols-2 gap-2">
+          <legend id="bk-slot-legend" className="text-sm font-medium">Time slot</legend>
+          <div role="radiogroup" aria-labelledby="bk-slot-legend" aria-describedby={errors.slotId ? 'bk-slotId-msg' : undefined} className="mt-1.5 grid grid-cols-2 gap-2">
             {slots.map((s) => {
               const disabled = s.past || s.state === 'booked' || s.mine
               return (
@@ -172,10 +180,21 @@ export default function BookingDialog({ resource, onClose }: { resource: LabReso
               {errors.slotId}
             </p>
           )}
-          {selected?.state === 'requested' && !selected.mine && (
+          {contested && (
             <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
               <Badge variant="warning">Conflict</Badge> Faculty will settle this using the AI allocation recommendation.
             </p>
+          )}
+          {(contested || dayFull) && (
+            <SlotSuggestions
+              suggestions={suggestions}
+              contested={contested}
+              onPick={(s) => {
+                setDate(s.date)
+                setSlotId(s.slotId)
+                setErrors((e) => ({ ...e, date: undefined, slotId: undefined }))
+              }}
+            />
           )}
         </fieldset>
 

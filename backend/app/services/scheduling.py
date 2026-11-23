@@ -2,6 +2,7 @@
 
 from datetime import date, datetime, timedelta
 from threading import RLock
+from zoneinfo import ZoneInfo
 
 from app.core.config import get_settings
 from app.schemas.lab import Booking, SlotId, SlotState, TimeSlot
@@ -18,8 +19,13 @@ SLOT_START_HOUR: dict[str, int] = {"s1": 9, "s2": 11, "s3": 14, "s4": 16}
 booking_lock = RLock()
 
 
+def now() -> datetime:
+    """Current campus time (see Settings.timezone)."""
+    return datetime.now(ZoneInfo(get_settings().timezone))
+
+
 def today() -> date:
-    return date.today()
+    return now().date()
 
 
 def window_end() -> date:
@@ -31,7 +37,8 @@ def slot_label(slot_id: str) -> str:
 
 
 def slot_started(day: date, slot_id: str) -> bool:
-    return day < today() or (day == today() and datetime.now().hour >= SLOT_START_HOUR[slot_id])
+    current = now()
+    return day < current.date() or (day == current.date() and current.hour >= SLOT_START_HOUR[slot_id])
 
 
 def is_active(booking: Booking) -> bool:

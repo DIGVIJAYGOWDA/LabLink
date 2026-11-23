@@ -15,10 +15,10 @@ import type { LabResource, ResourceType } from '@/types/lab'
 
 export default function Catalogue() {
   const { loading, error, resources, bookings, role } = useLabStore()
-  const [query, setQuery] = useState('')
+  const [params] = useSearchParams()
+  const [query, setQuery] = useState(params.get('q') ?? '')
   const [department, setDepartment] = useState('all')
   const [type, setType] = useState<ResourceType | 'all'>('all')
-  const [params] = useSearchParams()
   const [availableOnly, setAvailableOnly] = useState(params.get('available') === '1')
   const [booking, setBooking] = useState<LabResource | null>(null)
 

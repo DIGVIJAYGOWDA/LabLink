@@ -1,5 +1,4 @@
-// Lightweight CSS charts. Recharts is planned for a later dashboard phase (README);
-// these keep the bundle dependency-free for now.
+// Lightweight, dependency-free CSS charts (keeps the bundle small).
 import { formatDate, formatShortDay } from '@/lib/date'
 import type { UtilisationRow } from '@/services/labService'
 

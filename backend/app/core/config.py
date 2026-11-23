@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     # Booking rules (shared with the frontend's 14-day booking window)
+    # Campus time zone: slot times (09:00-18:00) and "today" follow this, not the server's clock (UTC on Vercel).
+    timezone: str = "Asia/Kolkata"
     booking_window_days: int = 14
 
     # Data store: "supabase" (PostgreSQL), "memory" (non-persistent mock data) or "auto"

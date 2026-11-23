@@ -24,7 +24,7 @@ export default function ResourceCard({ resource, utilisation, canBook, onBook }:
           <Icon className="size-5" aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <h3 className="font-semibold">{resource.name}</h3>
+          <h2 className="font-semibold">{resource.name}</h2>
           <p className="text-xs text-muted-foreground">
             {label} · {resource.department}
           </p>

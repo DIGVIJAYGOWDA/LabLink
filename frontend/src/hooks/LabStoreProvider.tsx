@@ -1,34 +1,16 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { CURRENT_FACULTY, CURRENT_STUDENT } from '@/data/demoUsers'
 import { ApiError, errorMessage } from '@/services/api'
 import * as labApi from '@/services/labService'
 import { findConflicts } from '@/services/labService'
-import type { Activity, Booking, Conflict, LabResource, NewBookingInput, Role } from '@/types/lab'
+import type { Activity, Booking, LabResource, NewBookingInput, Role } from '@/types/lab'
+import { LabStoreContext, type LabStore } from './useLabStore'
 
 // App state for the core features, loaded from and saved to the backend API (services/labService.ts).
 // Actions return the saved booking or throw an ApiError the caller shows to the user.
 
-interface LabStore {
-  loading: boolean
-  error: string | null
-  reload: () => void
-  role: Role
-  setRole: (role: Role) => void
-  currentUser: string
-  resources: LabResource[]
-  bookings: Booking[]
-  activities: Activity[]
-  conflicts: Conflict[]
-  getResource: (id: string) => LabResource | undefined
-  createBooking: (input: NewBookingInput) => Promise<Booking>
-  cancelBooking: (id: string) => Promise<Booking>
-  approveBooking: (id: string, note?: string) => Promise<Booking>
-  rejectBooking: (id: string, note: string) => Promise<Booking>
-  resolveConflict: (conflictId: string) => Promise<void>
-}
 
-const LabStoreContext = createContext<LabStore | null>(null)
 
 const ROLE_KEY = 'lablink.role'
 
@@ -160,10 +142,4 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
   )
 
   return <LabStoreContext.Provider value={value}>{children}</LabStoreContext.Provider>
-}
-
-export function useLabStore() {
-  const ctx = useContext(LabStoreContext)
-  if (!ctx) throw new Error('useLabStore must be used inside LabStoreProvider')
-  return ctx
 }
