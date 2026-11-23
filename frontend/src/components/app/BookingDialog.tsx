@@ -1,6 +1,8 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { Info } from 'lucide-react'
 
+import { Spinner } from '@/components/ui/spinner'
+
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
@@ -9,6 +11,7 @@ import { useToast } from '@/components/ui/toast'
 import { useLabStore } from '@/hooks/useLabStore'
 import { addDays, formatDate, todayIso } from '@/lib/date'
 import { cn } from '@/lib/utils'
+import { ApiError, errorMessage } from '@/services/api'
 import { BOOKING_WINDOW_DAYS, TIME_SLOTS, slotLabel, slotState } from '@/services/labService'
 import type { LabResource, SlotId } from '@/types/lab'
 
@@ -28,6 +31,7 @@ export default function BookingDialog({ resource, onClose }: { resource: LabReso
   const [purpose, setPurpose] = useState('')
   const [deadline, setDeadline] = useState('')
   const [errors, setErrors] = useState<Errors>({})
+  const [submitting, setSubmitting] = useState(false)
 
   const slots = useMemo(
     () =>
@@ -61,25 +65,37 @@ export default function BookingDialog({ resource, onClose }: { resource: LabReso
     return e
   }
 
-  function onSubmit(ev: FormEvent) {
+  async function onSubmit(ev: FormEvent) {
     ev.preventDefault()
     const e = validate()
     setErrors(e)
-    if (Object.keys(e).length || !slotId) return
-    const booking = createBooking({
-      resourceId: resource.id,
-      date,
-      slotId,
-      projectTitle: projectTitle.trim(),
-      purpose: purpose.trim(),
-      deadline,
-    })
-    notify(
-      booking.status === 'confirmed'
-        ? { tone: 'success', title: 'Booking confirmed', description: `${resource.name}, ${formatDate(date)} · ${slotLabel(slotId)}` }
-        : { tone: 'info', title: 'Request sent for approval', description: `Faculty will review your ${resource.name} request.` },
-    )
-    onClose()
+    if (Object.keys(e).length || !slotId || submitting) return
+    setSubmitting(true)
+    try {
+      const booking = await createBooking({
+        resourceId: resource.id,
+        date,
+        slotId,
+        projectTitle: projectTitle.trim(),
+        purpose: purpose.trim(),
+        deadline,
+      })
+      notify(
+        booking.status === 'confirmed'
+          ? { tone: 'success', title: 'Booking confirmed', description: `${resource.name}, ${formatDate(date)} · ${slotLabel(slotId)}` }
+          : { tone: 'info', title: 'Request sent for approval', description: `Faculty will review your ${resource.name} request.` },
+      )
+      onClose()
+    } catch (err) {
+      const field = err instanceof ApiError ? (err.field as keyof Errors | undefined) : undefined
+      if (field && ['date', 'slotId', 'projectTitle', 'purpose', 'deadline'].includes(field)) {
+        setErrors({ [field]: errorMessage(err) })
+      } else {
+        notify({ tone: 'error', title: 'Could not save the booking', description: errorMessage(err) })
+      }
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const err = (k: keyof Errors) => (errors[k] ? { 'aria-invalid': true, 'aria-describedby': `bk-${k}-msg` } : {})
@@ -95,7 +111,8 @@ export default function BookingDialog({ resource, onClose }: { resource: LabReso
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" form="booking-form">
+          <Button type="submit" form="booking-form" disabled={submitting}>
+            {submitting && <Spinner className="size-4 text-current" label="Saving" />}
             {resource.requiresApproval ? 'Submit request' : 'Confirm booking'}
           </Button>
         </>

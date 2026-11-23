@@ -7,9 +7,10 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { Field, Textarea } from '@/components/ui/form'
-import { PageLoader } from '@/components/ui/spinner'
+import { PageLoader, Spinner } from '@/components/ui/spinner'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/toast'
+import { errorMessage } from '@/services/api'
 import { useLabStore } from '@/hooks/useLabStore'
 import { formatDate } from '@/lib/date'
 import { slotLabel, slotState } from '@/services/labService'
@@ -21,6 +22,7 @@ export default function Approvals() {
   const [declining, setDeclining] = useState<Booking | null>(null)
   const [note, setNote] = useState('')
   const [noteError, setNoteError] = useState('')
+  const [busyId, setBusyId] = useState<string | null>(null)
 
   if (role !== 'faculty') {
     return (
@@ -41,9 +43,16 @@ export default function Approvals() {
     .filter((b) => b.status === 'pending')
     .sort((a, b) => a.deadline.localeCompare(b.deadline) || a.createdAt.localeCompare(b.createdAt))
 
-  function approve(b: Booking) {
-    approveBooking(b.id)
-    notify({ tone: 'success', title: 'Request approved', description: `${b.studentName} · ${getResource(b.resourceId)?.name}` })
+  async function approve(b: Booking) {
+    setBusyId(b.id)
+    try {
+      await approveBooking(b.id)
+      notify({ tone: 'success', title: 'Request approved', description: `${b.studentName} · ${getResource(b.resourceId)?.name}` })
+    } catch (err) {
+      notify({ tone: 'error', title: 'Could not approve', description: errorMessage(err) })
+    } finally {
+      setBusyId(null)
+    }
   }
 
   function openDecline(b: Booking) {
@@ -52,16 +61,23 @@ export default function Approvals() {
     setNoteError('')
   }
 
-  function submitDecline(e: FormEvent) {
+  async function submitDecline(e: FormEvent) {
     e.preventDefault()
-    if (!declining) return
+    if (!declining || busyId) return
     if (note.trim().length < 5) {
       setNoteError('Give the student a short reason (at least 5 characters).')
       return
     }
-    rejectBooking(declining.id, note.trim())
-    notify({ tone: 'info', title: 'Request declined', description: `${declining.studentName} has been notified.` })
-    setDeclining(null)
+    setBusyId(declining.id)
+    try {
+      await rejectBooking(declining.id, note.trim())
+      notify({ tone: 'info', title: 'Request declined', description: `${declining.studentName} can see your reason in their bookings.` })
+      setDeclining(null)
+    } catch (err) {
+      setNoteError(errorMessage(err))
+    } finally {
+      setBusyId(null)
+    }
   }
 
   return (
@@ -133,15 +149,16 @@ export default function Approvals() {
                           <TableCell className="whitespace-nowrap">{formatDate(b.deadline)}</TableCell>
                           <TableCell>
                             <div className="flex justify-end gap-2">
-                              <Button variant="outline" size="sm" onClick={() => openDecline(b)}>
+                              <Button variant="outline" size="sm" onClick={() => openDecline(b)} disabled={busyId === b.id}>
                                 Decline
                               </Button>
                               <Button
                                 size="sm"
-                                disabled={taken}
+                                disabled={taken || busyId === b.id}
                                 title={taken ? 'Another booking already holds this slot' : undefined}
                                 onClick={() => approve(b)}
                               >
+                                {busyId === b.id && !declining && <Spinner className="size-4 text-current" label="Approving" />}
                                 Approve
                               </Button>
                             </div>
@@ -169,7 +186,8 @@ export default function Approvals() {
             <Button variant="outline" onClick={() => setDeclining(null)}>
               Cancel
             </Button>
-            <Button type="submit" form="decline-form">
+            <Button type="submit" form="decline-form" disabled={!!busyId}>
+              {busyId && <Spinner className="size-4 text-current" label="Declining" />}
               Decline request
             </Button>
           </>

@@ -12,6 +12,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
+import AssistantChat from '@/components/app/AssistantChat'
 import { Button } from '@/components/ui/button'
 import { ToastProvider } from '@/components/ui/toast'
 import { LabStoreProvider, useLabStore } from '@/hooks/useLabStore'
@@ -121,10 +122,8 @@ function RoleSwitcher() {
 function Shell() {
   const [menuOpen, setMenuOpen] = useState(false)
   const { pathname } = useLocation()
-  const { currentUser } = useLabStore()
+  const { currentUser, role } = useLabStore()
   const title = APP_NAV.find((n) => (n.end ? pathname === n.to : pathname.startsWith(n.to)))?.label ?? 'LabLink'
-
-  useEffect(() => setMenuOpen(false), [pathname])
 
   useEffect(() => {
     if (!menuOpen) return
@@ -175,10 +174,11 @@ function Shell() {
           <span className="hidden text-sm text-muted-foreground md:inline">{currentUser}</span>
           <RoleSwitcher />
         </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-24 pt-6 sm:px-6 sm:pt-8">
           <Outlet />
         </main>
       </div>
+      <AssistantChat key={role} />
     </div>
   )
 }

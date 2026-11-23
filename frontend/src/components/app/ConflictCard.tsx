@@ -9,33 +9,43 @@ import { useToast } from '@/components/ui/toast'
 import { useLabStore } from '@/hooks/useLabStore'
 import { formatDate } from '@/lib/date'
 import { cn } from '@/lib/utils'
+import { errorMessage } from '@/services/api'
 import { requestAllocationRecommendation, slotLabel } from '@/services/labService'
 import type { AllocationRecommendation, Conflict } from '@/types/lab'
 
 export default function ConflictCard({ conflict }: { conflict: Conflict }) {
-  const { bookings, getResource, applyRecommendation } = useLabStore()
+  const { getResource, resolveConflict } = useLabStore()
   const notify = useToast()
   const [rec, setRec] = useState<AllocationRecommendation | null>(null)
   const [loading, setLoading] = useState(false)
-  const [failed, setFailed] = useState(false)
+  const [failed, setFailed] = useState<string | null>(null)
+  const [applying, setApplying] = useState(false)
   const resource = getResource(conflict.resourceId)
 
   async function recommend() {
     setLoading(true)
-    setFailed(false)
+    setFailed(null)
     try {
-      setRec(await requestAllocationRecommendation(conflict, bookings))
-    } catch {
-      setFailed(true)
+      setRec(await requestAllocationRecommendation(conflict.key))
+    } catch (err) {
+      setFailed(errorMessage(err, 'Recommendation unavailable. Please try again.'))
     } finally {
       setLoading(false)
     }
   }
 
-  function apply() {
-    if (!rec) return
-    applyRecommendation(rec)
-    notify({ tone: 'success', title: 'Conflict resolved', description: `${resource?.name ?? 'Resource'} allocation applied.` })
+  async function apply() {
+    if (!rec || applying) return
+    setApplying(true)
+    try {
+      await resolveConflict(rec.conflictId)
+      notify({ tone: 'success', title: 'Conflict resolved', description: `${resource?.name ?? 'Resource'} allocation applied.` })
+    } catch (err) {
+      setFailed(errorMessage(err))
+      setRec(null)
+    } finally {
+      setApplying(false)
+    }
   }
 
   return (
@@ -89,25 +99,31 @@ export default function ConflictCard({ conflict }: { conflict: Conflict }) {
       </ul>
 
       {rec && (
-        <p className="mt-4 flex gap-2 rounded-lg bg-muted p-3 text-sm">
-          <Sparkles className="mt-0.5 size-4 shrink-0 text-brand" aria-hidden="true" />
+        <div className="mt-4 rounded-lg bg-muted p-3 text-sm">
+          <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <Sparkles className="size-3.5 text-brand" aria-hidden="true" />
+            {rec.explanationSource === 'gemini' ? 'AI explanation (Gemini)' : 'Why this allocation'}
+          </p>
           {rec.reason}
-        </p>
+        </div>
       )}
-      {failed && <p className="mt-4 text-sm text-red-600">Recommendation unavailable. Please try again.</p>}
+      {failed && <p className="mt-4 text-sm text-red-600" role="alert">{failed}</p>}
 
       <div className="mt-4 flex flex-col gap-2 sm:flex-row">
         {rec ? (
           <>
-            <Button onClick={apply}>Apply recommendation</Button>
-            <Button variant="outline" onClick={() => setRec(null)}>
+            <Button onClick={apply} disabled={applying}>
+              {applying && <Spinner className="size-4 text-current" label="Applying" />}
+              Apply recommendation
+            </Button>
+            <Button variant="outline" onClick={() => setRec(null)} disabled={applying}>
               Dismiss
             </Button>
           </>
         ) : (
           <Button variant="outline" onClick={recommend} disabled={loading}>
             {loading ? <Spinner className="size-4" label="Generating recommendation" /> : <Sparkles />}
-            Get AI recommendation
+            Recommend fair allocation
           </Button>
         )}
       </div>

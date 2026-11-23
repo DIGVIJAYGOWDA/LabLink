@@ -1,5 +1,7 @@
-// HTTP client for the LabLink backend. The base URL comes from VITE_API_BASE_URL (see frontend/.env.example).
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000').replace(/\/$/, '')
+// HTTP client for the LabLink backend. Base URL: runtime config (public/config.js, written by the
+// production container from API_BASE_URL), else VITE_API_BASE_URL (frontend/.env), else localhost.
+const runtimeApiUrl = (window as Window & { __LABLINK_CONFIG__?: { apiBaseUrl?: string } }).__LABLINK_CONFIG__?.apiBaseUrl
+const API_BASE_URL = (runtimeApiUrl || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '')
 
 interface ErrorEnvelope {
   error?: { code?: string; message?: string; details?: { field?: string | null; message: string }[] }

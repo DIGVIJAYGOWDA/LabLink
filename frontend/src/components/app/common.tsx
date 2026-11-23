@@ -22,14 +22,14 @@ export function PageHeader({ title, description, actions }: { title: string; des
 
 export function StatCard({ icon: Icon, label, value, hint }: { icon: LucideIcon; label: string; value: ReactNode; hint?: string }) {
   return (
-    <Card className="p-5">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-muted-foreground">{label}</p>
-        <span className="flex size-9 items-center justify-center rounded-lg bg-brand-soft text-brand">
-          <Icon className="size-4.5" aria-hidden="true" />
+    <Card className="p-4 transition-shadow hover:shadow-md sm:p-5">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs font-medium text-muted-foreground sm:text-sm">{label}</p>
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand sm:size-9">
+          <Icon className="size-4 sm:size-4.5" aria-hidden="true" />
         </span>
       </div>
-      <p className="mt-3 text-3xl font-bold tracking-tight">{value}</p>
+      <p className="mt-2 text-2xl font-bold tracking-tight tabular-nums sm:mt-3 sm:text-3xl">{value}</p>
       {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
     </Card>
   )

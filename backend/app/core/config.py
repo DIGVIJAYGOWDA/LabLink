@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model: str = "gemini-flash-latest"
     gemini_timeout_seconds: int = 30
+    # Max assistant questions per client per minute (0 disables the limit)
+    assistant_rate_limit_per_minute: int = 20
     supabase_url: str = ""
     supabase_service_role_key: str = ""
 

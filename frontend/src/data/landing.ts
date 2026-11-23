@@ -28,6 +28,7 @@ export const GITHUB_URL = 'https://github.com/DIGVIJAYGOWDA/LabLink'
 export const NAV_LINKS: NavLink[] = [
   { label: 'Home', href: '#home' },
   { label: 'Features', href: '#features' },
+  { label: 'AI Assistant', href: '#assistant' },
   { label: 'How It Works', href: '#how-it-works' },
   { label: 'About', href: '#about' },
 ]

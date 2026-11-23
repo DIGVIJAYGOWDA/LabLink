@@ -5,9 +5,10 @@ import { CalendarX2 } from 'lucide-react'
 import { EmptyState, LoadError, PageHeader, StatusBadge } from '@/components/app/common'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
-import { PageLoader } from '@/components/ui/spinner'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { PageLoader, Spinner } from '@/components/ui/spinner'
 import { useToast } from '@/components/ui/toast'
+import { errorMessage } from '@/services/api'
 import { useLabStore } from '@/hooks/useLabStore'
 import { formatDate, todayIso } from '@/lib/date'
 import { cn } from '@/lib/utils'
@@ -27,6 +28,7 @@ export default function Bookings() {
   const notify = useToast()
   const [tab, setTab] = useState<Tab>('upcoming')
   const [toCancel, setToCancel] = useState<Booking | null>(null)
+  const [cancelling, setCancelling] = useState(false)
   const today = todayIso()
   const isFaculty = role === 'faculty'
 
@@ -40,11 +42,18 @@ export default function Bookings() {
     tab === 'history' ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date) || a.slotId.localeCompare(b.slotId),
   )
 
-  function confirmCancel() {
-    if (!toCancel) return
-    cancelBooking(toCancel.id)
-    notify({ tone: 'info', title: toCancel.status === 'pending' ? 'Request withdrawn' : 'Booking cancelled' })
-    setToCancel(null)
+  async function confirmCancel() {
+    if (!toCancel || cancelling) return
+    setCancelling(true)
+    try {
+      await cancelBooking(toCancel.id)
+      notify({ tone: 'success', title: toCancel.status === 'pending' ? 'Request withdrawn' : 'Booking cancelled' })
+      setToCancel(null)
+    } catch (err) {
+      notify({ tone: 'error', title: 'Could not cancel', description: errorMessage(err) })
+    } finally {
+      setCancelling(false)
+    }
   }
 
   return (
@@ -90,7 +99,39 @@ export default function Bookings() {
 
           <div id="bookings-panel" role="tabpanel" aria-labelledby={`tab-${tab}`}>
             {rows.length ? (
-              <div className="overflow-hidden rounded-xl border bg-background">
+              <>
+              <ul className="space-y-3 sm:hidden">
+                {rows.map((b) => {
+                  const r = getResource(b.resourceId)
+                  return (
+                    <li key={b.id} className="rounded-xl border bg-background p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-medium">{r?.name}</p>
+                          <p className="text-xs text-muted-foreground">{r?.lab}</p>
+                        </div>
+                        <StatusBadge status={b.status} />
+                      </div>
+                      <p className="mt-3 text-sm">
+                        {formatDate(b.date)} · <span className="tabular-nums">{slotLabel(b.slotId)}</span>
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {isFaculty && `${b.studentName} · `}
+                        {b.projectTitle} · deadline {formatDate(b.deadline)}
+                      </p>
+                      {b.facultyNote && b.status !== 'confirmed' && (
+                        <p className="mt-2 rounded-md bg-muted p-2 text-xs text-muted-foreground">{b.facultyNote}</p>
+                      )}
+                      {!isFaculty && tab !== 'history' && (
+                        <Button variant="outline" size="sm" className="mt-3 w-full" onClick={() => setToCancel(b)}>
+                          {b.status === 'pending' ? 'Withdraw request' : 'Cancel booking'}
+                        </Button>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+              <div className="hidden overflow-hidden rounded-xl border bg-background sm:block">
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
@@ -139,6 +180,7 @@ export default function Bookings() {
                   </TableBody>
                 </Table>
               </div>
+              </>
             ) : (
               <EmptyState
                 icon={CalendarX2}
@@ -171,7 +213,8 @@ export default function Bookings() {
             <Button variant="outline" onClick={() => setToCancel(null)}>
               Keep it
             </Button>
-            <Button className="bg-red-600 text-white hover:bg-red-700" onClick={confirmCancel}>
+            <Button className="bg-red-600 text-white hover:bg-red-700" onClick={confirmCancel} disabled={cancelling}>
+              {cancelling && <Spinner className="size-4 text-current" label="Cancelling" />}
               {toCancel?.status === 'pending' ? 'Withdraw request' : 'Cancel booking'}
             </Button>
           </>

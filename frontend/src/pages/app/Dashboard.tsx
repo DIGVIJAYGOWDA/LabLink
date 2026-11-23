@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ArrowRight, CalendarCheck, ClipboardCheck, Clock, Search, Boxes } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Boxes, CalendarCheck, ClipboardCheck, Clock, Search, Sparkles } from 'lucide-react'
 
 import ActivityFeed from '@/components/app/ActivityFeed'
 import { UtilisationBars, WeeklyBookingsChart } from '@/components/app/charts'
-import { LoadError, PageHeader, StatCard, StatusBadge } from '@/components/app/common'
+import { LoadError, StatCard, StatusBadge } from '@/components/app/common'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageLoader } from '@/components/ui/spinner'
@@ -31,23 +31,34 @@ export default function Dashboard() {
 
   return (
     <>
-      <PageHeader
-        title={isFaculty ? 'Faculty dashboard' : 'Welcome back'}
-        description={
-          isFaculty
-            ? 'Review access requests, resolve slot conflicts and keep an eye on lab utilisation.'
-            : 'Find lab resources, track your bookings and follow your access requests.'
-        }
-        actions={
-          <Button asChild>
+      <section className="relative isolate mb-6 overflow-hidden rounded-2xl bg-gradient-to-br from-brand to-teal-700 p-6 text-white shadow-lg shadow-brand/20 sm:p-8">
+        <div className="bg-dot-grid absolute inset-0 -z-10 opacity-25 [mask-image:linear-gradient(to_left,black,transparent)]" aria-hidden="true" />
+        <p className="text-sm font-medium text-white/80">
+          {new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
+        </p>
+        <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
+          {isFaculty ? 'Faculty dashboard' : `Welcome back, ${currentUser.split(' ')[0]}`}
+        </h1>
+        <p className="mt-2 max-w-xl text-white/85 text-pretty">
+          {isFaculty
+            ? pending.length
+              ? `${pending.length} request${pending.length === 1 ? '' : 's'} waiting for review${scopedConflicts.length ? `, ${scopedConflicts.length} with slot conflicts` : ''}.`
+              : 'No requests are waiting for review.'
+            : 'Find lab resources, track your bookings and follow your access requests.'}
+        </p>
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+          <Button asChild variant="secondary" className="bg-white text-brand hover:bg-white/90">
             <Link to={isFaculty ? '/app/approvals' : '/app/catalogue'}>
               {isFaculty ? 'Review requests' : 'Find equipment'} <ArrowRight />
             </Link>
           </Button>
-        }
-      />
+          <p className="flex items-center gap-1.5 text-sm text-white/85 sm:ml-2">
+            <Sparkles className="size-4" aria-hidden="true" /> Tip: ask LabLink AI which labs are free.
+          </p>
+        </div>
+      </section>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatCard icon={Boxes} label="Available resources" value={`${available}/${resources.length}`} hint="Across all departments" />
         {isFaculty ? (
           <StatCard icon={CalendarCheck} label="Confirmed this week" value={thisWeek} hint="All departments, next 7 days" />

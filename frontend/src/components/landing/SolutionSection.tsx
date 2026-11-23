@@ -1,4 +1,5 @@
 import { SOLUTIONS } from '@/data/landing'
+import Reveal from './Reveal'
 import Section from './Section'
 import SectionHeading from './SectionHeading'
 
@@ -11,8 +12,8 @@ export default function SolutionSection() {
         description="LabLink is a GenAI-powered resource-sharing platform that connects students with equipment across departments while keeping faculty in the loop."
       />
       <div className="mt-12 grid gap-8 md:grid-cols-3">
-        {SOLUTIONS.map(({ icon: Icon, title, description }) => (
-          <div key={title} className="flex gap-4">
+        {SOLUTIONS.map(({ icon: Icon, title, description }, i) => (
+          <Reveal key={title} delay={i * 120} className="flex gap-4">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand">
               <Icon className="size-5" aria-hidden="true" />
             </div>
@@ -20,7 +21,7 @@ export default function SolutionSection() {
               <h3 className="font-semibold">{title}</h3>
               <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{description}</p>
             </div>
-          </div>
+          </Reveal>
         ))}
       </div>
     </Section>
